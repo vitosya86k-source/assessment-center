@@ -21,7 +21,7 @@ logger = logging.getLogger("combo_server")
 _BASE = Path(__file__).resolve().parent
 _WEBAPP = Path(os.environ.get("COMBO_WEBAPP_DIR", str(_BASE / "webapp")))
 _VIDEO_SUFFIXES = {".mp4", ".mov", ".webm", ".mkv", ".m4v", ".avi"}
-_WEBAPP_PAGES = ("phone_analyze.html", "combo_live.html", "browser_overlay.html")
+_WEBAPP_PAGES = ("phone_analyze.html", "combo_live.html", "browser_overlay.html", "mobile_overlay.html")
 
 
 def _public_base_url() -> str:

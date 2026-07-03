@@ -67,7 +67,11 @@
   <div class="grp" id="g_emo"><div class="gt">🙂 Эмоции</div><div id="emo"></div></div>
   <div class="grp" id="g_pose"><div class="gt">🧍 Поза</div><div id="pose"></div></div>
   <div class="grp" id="g_pulse"><div class="gt">❤️ Пульс по видео</div><div id="pulse"></div></div>
-  <p class="note">Камера/файл — сразу; по ссылке — если видео с CORS. Метрики считаются на телефоне (MediaPipe + Web Audio). Маркеры состояния, не медприбор.</p>
+  <p class="note">Камера/файл — сразу; по ссылке — если видео с CORS. Метрики на телефоне (MediaPipe). Маркеры, не медприбор.</p>
+  <div class="row" style="padding:8px 0;gap:8px">
+    <button id="recbtn" style="flex:1;border:0;border-radius:10px;padding:10px;background:#252c41;color:#eef2fb;font-weight:700">● Запись CSV</button>
+    <button id="csvbtn" style="flex:1;border:0;border-radius:10px;padding:10px;background:#4fd1c5;color:#06211e;font-weight:700" disabled>⬇ Скачать CSV</button>
+  </div>
 
   <input type="file" id="file" accept="video/*">
   <video id="src" playsinline muted style="display:none"></video>
@@ -88,6 +92,7 @@ const rgbBuf=[]; let lastPulse=0, hrVal=null, snrVal=0;
 const speechWin=[]; let lastSpeechCalc=0;
 let prevNose=null, fidgetEma=0;
 let faceTs=0, poseTs=0, frameN=0;
+let recording=false, csvSeries=[];
 const mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
 const std=a=>{const m=mean(a);return Math.sqrt(mean(a.map(x=>(x-m)**2)));};
 
@@ -188,6 +193,7 @@ function loop(){
     if(pr && pr.landmarks && pr.landmarks[0]) updatePose(pr.landmarks[0]); }
   if(ts-lastPulse>1000){ lastPulse=ts; computePulse(); }
   if(ts-lastSpeechCalc>900){ lastSpeechCalc=ts; computeSpeech(); }
+  if(recording) pushCsvSample();
   // живой статус — видно, что детектится
   if(tainted){ statusEl.innerHTML='<span class="bad">видео по ссылке без CORS — открой «Файлом»</span>'; }
   else {
@@ -263,6 +269,14 @@ function computeSpeech(){
 }
 function pctl(a,p){const s=[...a].sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.floor(p/100*s.length))];}
 
+function pushCsvSample(){
+  const w=speechWin; let tempo='';
+  if(w.length>=8){ let on=0; for(let i=1;i<w.length;i++) if(w[i].voiced&&!w[i-1].voiced) on++;
+    const sec=(w[w.length-1].t-w[0].t)/1000; tempo=sec>0?String(Math.round(on/(sec/60))):''; }
+  csvSeries.push({t_iso:new Date().toISOString(), hr_bpm:hrVal??'', snr:snrVal?+snrVal.toFixed(2):'', speech_tempo:tempo});
+  document.getElementById('csvbtn').disabled=false;
+}
+
 function renderRows(id,rows,sev){
   const el=document.getElementById(id); const g=el.parentElement;
   g.className='grp sev'+(sev||0);
@@ -281,6 +295,21 @@ document.getElementById('zin').onclick=()=>{ zoom=Math.min(4,zoom+0.5); };
 document.getElementById('zout').onclick=()=>{ zoom=Math.max(1,zoom-0.5); };
 document.getElementById('hint').addEventListener('pointerdown',()=>document.getElementById('hint').style.display='none');
 cv.addEventListener('pointerdown',ev=>{ const r=cv.getBoundingClientRect(); roiTap={x:(ev.clientX-r.left)/r.width,y:(ev.clientY-r.top)/r.height}; document.getElementById('hint').style.display='none'; });
+
+document.getElementById('recbtn').onclick=()=>{
+  recording=!recording;
+  document.getElementById('recbtn').textContent=recording?'■ Стоп запись':'● Запись CSV';
+  document.getElementById('recbtn').style.background=recording?'#ff4757':'#252c41';
+};
+document.getElementById('csvbtn').onclick=()=>{
+  if(!csvSeries.length) return;
+  const head='t_iso,hr_bpm,snr,speech_tempo\n';
+  const rows=csvSeries.map(r=>`${r.t_iso},${r.hr_bpm},${r.snr},${r.speech_tempo}`).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([head+rows],{type:'text/csv'}));
+  a.download='ac_analyze_'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';
+  a.click(); URL.revokeObjectURL(a.href);
+};
 
 initModels(); loop();
 const _p=new URLSearchParams(location.search);

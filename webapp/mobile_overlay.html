@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Накладка · live-метрики</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{--ok:#4fd1c5;--watch:#ffb454;--bad:#ff6b6b;--glass:rgba(12,16,28,.82)}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  html,body{height:100%;background:#000;color:#eef2fb;
+    font-family:-apple-system,"SF Pro Text","Segoe UI",Roboto,sans-serif;overflow:hidden}
+  #cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+  #cv{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;touch-action:manipulation}
+  .hud{position:fixed;left:0;right:0;top:0;padding:max(10px,env(safe-area-inset-top)) 12px 10px;
+    background:linear-gradient(180deg,rgba(0,0,0,.75),transparent);z-index:10;pointer-events:none}
+  .hud>*{pointer-events:auto}
+  .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .pill{background:var(--glass);backdrop-filter:blur(8px);border-radius:999px;padding:6px 12px;
+    font-size:13px;font-weight:650;border:1px solid rgba(255,255,255,.08)}
+  .hr{font-size:28px;font-weight:800;letter-spacing:-.03em;line-height:1}
+  .hr small{font-size:14px;font-weight:600;opacity:.75}
+  .rec.on .dot{background:var(--bad);box-shadow:0 0 8px var(--bad)}
+  .dot{width:8px;height:8px;border-radius:50%;background:#555;display:inline-block;margin-right:6px}
+  .sheet{position:fixed;left:0;right:0;bottom:0;max-height:42vh;background:var(--glass);
+    backdrop-filter:blur(12px);border-radius:18px 18px 0 0;padding:10px 14px max(14px,env(safe-area-inset-bottom));
+    z-index:11;transform:translateY(calc(100% - 52px));transition:transform .25s ease;border-top:1px solid rgba(255,255,255,.1)}
+  .sheet.open{transform:translateY(0)}
+  .handle{width:36px;height:4px;border-radius:99px;background:rgba(255,255,255,.25);margin:0 auto 8px}
+  .sheet h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#8b94ad;margin:4px 0 8px}
+  .mrow{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px}
+  .mrow:last-child{border:0}
+  .val{font-weight:700;font-variant-numeric:tabular-nums}
+  .ok{color:var(--ok)}.watch{color:var(--watch)}.bad{color:var(--bad)}
+  .btns{position:fixed;right:10px;bottom:max(62px,calc(52px + env(safe-area-inset-bottom)));z-index:12;
+    display:flex;flex-direction:column;gap:8px}
+  .btns button{width:46px;height:46px;border-radius:50%;border:0;background:var(--glass);color:#fff;
+    font-size:20px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12)}
+  .hint{position:fixed;left:12px;right:12px;top:50%;transform:translateY(-20px);text-align:center;
+    font-size:14px;color:#cfd6e8;background:rgba(0,0,0,.55);padding:12px;border-radius:12px;z-index:9;
+    pointer-events:none;line-height:1.45}
+  .hint.hide{display:none}
+  video{display:none}
+</style>
+</head>
+<body>
+<video id="vid" playsinline muted autoplay></video>
+<canvas id="cv"></canvas>
+<div class="hint" id="hint">Наведи камеру на участника или на экран с видео.<br>Тапни по лицу — кого смотреть.</div>
+<div class="hud">
+  <div class="row">
+    <div class="pill"><span class="hr"><span id="hr">—</span><small> уд/мин</small></span></div>
+    <div class="pill" id="q">ожидаю сигнал</div>
+    <div class="pill rec" id="recpill"><span class="dot"></span><span id="rectxt">запись</span></div>
+    <div class="pill" id="timer">0:00</div>
+  </div>
+</div>
+<div class="btns">
+  <button id="flip" title="камера">🔄</button>
+  <button id="rec" title="запись">●</button>
+  <button id="csv" title="CSV" disabled>⬇</button>
+</div>
+<div class="sheet" id="sheet">
+  <div class="handle" id="handle"></div>
+  <h2>Метрики сессии</h2>
+  <div id="metrics"></div>
+</div>
+
+<script type="module">
+import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+const TG=window.Telegram?.WebApp; if(TG){try{TG.expand();TG.ready();}catch(e){}}
+
+const video=document.getElementById('vid'), cv=document.getElementById('cv');
+const ctx=cv.getContext('2d',{willReadFrequently:true});
+const hrEl=document.getElementById('hr'), qEl=document.getElementById('q');
+const recBtn=document.getElementById('rec'), csvBtn=document.getElementById('csv');
+const recPill=document.getElementById('recpill'), recTxt=document.getElementById('rectxt');
+const timerEl=document.getElementById('timer'), metricsEl=document.getElementById('metrics');
+const sheet=document.getElementById('sheet'), handle=document.getElementById('handle');
+const hint=document.getElementById('hint');
+
+let face=null, ready=false, facing='environment', roiTap=null;
+let rgbBuf=[], series=[], recording=false, recT0=0, timerIv=null;
+let lastPulse=0, hrVal=null, snrVal=0, faceTs=0;
+let speechWin=[], micStream=null, analyser=null, audioBuf=null, audioCtx=null;
+let lastSpeech=0, emoDom='—', speechTempo='—';
+
+const mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
+const std=a=>{const m=mean(a);return Math.sqrt(mean(a.map(x=>(x-m)**2)));};
+
+async function init(){
+  try{
+    const fs=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+    try{
+      face=await FaceLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",delegate:"GPU"},runningMode:"VIDEO",numFaces:3,outputFaceBlendshapes:true});
+    }catch(e){
+      face=await FaceLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",delegate:"CPU"},runningMode:"VIDEO",numFaces:3,outputFaceBlendshapes:true});
+    }
+    ready=true;
+  }catch(e){ qEl.textContent='нет сети для моделей'; }
+  await startCam();
+  requestAnimationFrame(loop);
+}
+
+async function startCam(){
+  if(micStream) micStream.getTracks().forEach(t=>t.stop());
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1280}},audio:true});
+    video.srcObject=micStream; await video.play();
+    const ac=audioCtx||(audioCtx=new (window.AudioContext||window.webkitAudioContext)());
+    const s=ac.createMediaStreamSource(micStream);
+    analyser=ac.createAnalyser(); analyser.fftSize=2048; s.connect(analyser);
+    audioBuf=new Float32Array(analyser.fftSize);
+  }catch(e){ qEl.innerHTML='<span class="bad">нет камеры — нужен HTTPS</span>'; }
+}
+
+function draw(){
+  const vw=video.videoWidth, vh=video.videoHeight; if(!vw) return false;
+  cv.width=window.innerWidth; cv.height=window.innerHeight;
+  const scale=Math.max(cv.width/vw, cv.height/vh);
+  const dw=vw*scale, dh=vh*scale, ox=(cv.width-dw)/2, oy=(cv.height-dh)/2;
+  ctx.drawImage(video, ox, oy, dw, dh);
+  return {vw,vh,ox,oy,scale};
+}
+
+function sampleAudio(){
+  if(!analyser) return;
+  analyser.getFloatTimeDomainData(audioBuf);
+  let rms=0; for(const v of audioBuf) rms+=v*v; rms=Math.sqrt(rms/audioBuf.length);
+  speechWin.push({t:performance.now(), voiced:rms>0.012});
+  while(speechWin.length && speechWin[0].t<performance.now()-15000) speechWin.shift();
+}
+
+function loop(){
+  requestAnimationFrame(loop);
+  if(!ready||video.readyState<2) return;
+  const g=draw(); if(!g) return;
+  const ts=performance.now();
+  sampleAudio();
+  let fr=null;
+  try{ faceTs=Math.max(faceTs+1,Math.round(ts)); fr=face.detectForVideo(cv,faceTs); }catch(e){}
+  if(fr?.faceLandmarks?.length){
+    let bi=0;
+    if(fr.faceLandmarks.length>1){
+      if(roiTap){ let bd=1e9; fr.faceLandmarks.forEach((lm,i)=>{const d=(lm[1].x-roiTap.x)**2+(lm[1].y-roiTap.y)**2;if(d<bd){bd=d;bi=i;}}); }
+      else { let ba=0; fr.faceLandmarks.forEach((lm,i)=>{const xs=lm.map(p=>p.x),ys=lm.map(p=>p.y);const a=(Math.max(...xs)-Math.min(...xs))*(Math.max(...ys)-Math.min(...ys));if(a>ba){ba=a;bi=i;}}); }
+    }
+    const lm=fr.faceLandmarks[bi];
+    const idx=[10,67,297,109,338,151];
+    let xs=idx.map(i=>lm[i].x*cv.width), ys=idx.map(i=>lm[i].y*cv.height);
+    const x0=Math.max(0,Math.min(...xs)), x1=Math.min(cv.width,Math.max(...xs));
+    const y0=Math.max(0,Math.min(...ys)), y1=Math.min(cv.height,Math.max(...ys));
+    if(x1-x0>4){
+      const d=ctx.getImageData(x0|0,y0|0,(x1-x0)|0,(y1-y0)|0).data;
+      let r=0,g=0,b=0,n=0; for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}
+      rgbBuf.push({t:ts,r:r/n,g:g/n,b:b/n}); if(rgbBuf.length>600) rgbBuf.shift();
+    }
+    ctx.strokeStyle='#4fd1c5'; ctx.lineWidth=3; ctx.strokeRect(x0,y0,x1-x0,y1-y0);
+    if(fr.faceBlendshapes?.[bi]) updateEmo(fr.faceBlendshapes[bi].categories);
+  }
+  if(ts-lastPulse>1000){ lastPulse=ts; computePulse(); }
+  if(ts-lastSpeech>1200){ lastSpeech=ts; computeSpeech(); }
+  if(recording && hrVal) pushSample();
+  renderMetrics();
+}
+
+function bs(c,n){const c0=c.find(x=>x.categoryName===n);return c0?c0.score:0;}
+function updateEmo(cats){
+  const smile=(bs(cats,'mouthSmileLeft')+bs(cats,'mouthSmileRight'))/2;
+  const frown=(bs(cats,'mouthFrownLeft')+bs(cats,'mouthFrownRight'))/2;
+  const brow=bs(cats,'browDownLeft')+bs(cats,'browDownRight');
+  if(smile>0.4) emoDom='радость'; else if(brow>0.4) emoDom='напряжение'; else if(frown>0.3) emoDom='сдержанность'; else emoDom='нейтрально';
+}
+
+function posSig(R,G,B){
+  const mR=mean(R),mG=mean(G),mB=mean(B);
+  const Rn=R.map(x=>x/mR-1),Gn=G.map(x=>x/mG-1),Bn=B.map(x=>x/mB-1);
+  const S1=Gn.map((g,i)=>g-Bn[i]),S2=Gn.map((g,i)=>g+Bn[i]-2*Rn[i]);
+  const a=std(S1)/(std(S2)||1e-9); let h=S1.map((s,i)=>s+a*S2[i]); const m=mean(h); return h.map(x=>x-m);
+}
+function computePulse(){
+  const w=rgbBuf.filter(s=>s.t>=performance.now()-10000); if(w.length<60) return;
+  const fps=(w.length-1)/((w[w.length-1].t-w[0].t)/1000); if(fps<6) return;
+  const sig=posSig(w.map(s=>s.r),w.map(s=>s.g),w.map(s=>s.b));
+  let best={f:0,p:0},tot=0,k=0;
+  for(let f=0.7;f<=3;f+=0.01){let re=0,im=0;for(let i=0;i<sig.length;i++){const a=2*Math.PI*f*i/fps;re+=sig[i]*Math.cos(a);im-=sig[i]*Math.sin(a);}const p=(re*re+im*im)/sig.length;tot+=p;k++;if(p>best.p)best={f,p};}
+  hrVal=Math.round(best.f*60); snrVal=best.p/((tot/k)||1e-9);
+  hrEl.textContent=hrVal;
+  if(snrVal>=2.2) qEl.innerHTML='<span class="ok">сигнал ок</span>';
+  else if(snrVal>=1.3) qEl.innerHTML='<span class="watch">средний</span>';
+  else qEl.innerHTML='<span class="bad">слабый</span>';
+}
+function computeSpeech(){
+  const w=speechWin; if(w.length<8) return;
+  let on=0; for(let i=1;i<w.length;i++) if(w[i].voiced&&!w[i-1].voiced) on++;
+  const sec=(w[w.length-1].t-w[0].t)/1000;
+  speechTempo=sec>0?Math.round(on/(sec/60))+'/мин':'—';
+}
+
+function pushSample(){
+  series.push({t_iso:new Date().toISOString(), hr_bpm:hrVal, snr:+snrVal.toFixed(2), emotion:emoDom, speech_tempo:speechTempo});
+  csvBtn.disabled=false;
+}
+
+function renderMetrics(){
+  metricsEl.innerHTML=[
+    ['Пульс', hrVal?hrVal+' уд/мин':'—', snrVal<1.3?'bad':'ok'],
+    ['SNR', snrVal?snrVal.toFixed(1):'—', ''],
+    ['Эмоция (мимика)', emoDom, ''],
+    ['Темп речи', speechTempo, ''],
+    ['Точек в CSV', series.length, ''],
+  ].map(([n,v,c])=>`<div class="mrow"><span>${n}</span><span class="val ${c}">${v}</span></div>`).join('');
+}
+
+function fmtTimer(s){const m=Math.floor(s/60),ss=String(s%60).padStart(2,'0');return m+':'+ss;}
+
+recBtn.onclick=()=>{
+  recording=!recording;
+  recPill.classList.toggle('on',recording);
+  recTxt.textContent=recording?'идёт':'запись';
+  recBtn.style.color=recording?'#ff6b6b':'#fff';
+  if(recording){
+    recT0=Date.now();
+    timerIv=setInterval(()=>{timerEl.textContent=fmtTimer(Math.floor((Date.now()-recT0)/1000));},1000);
+  }else{
+    clearInterval(timerIv);
+  }
+};
+csvBtn.onclick=()=>{
+  if(!series.length) return;
+  const head='t_iso,hr_bpm,snr,emotion,speech_tempo\n';
+  const rows=series.map(r=>`${r.t_iso},${r.hr_bpm},${r.snr},${r.emotion},${r.speech_tempo}`).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([head+rows],{type:'text/csv'}));
+  a.download='ac_overlay_'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';
+  a.click(); URL.revokeObjectURL(a.href);
+};
+document.getElementById('flip').onclick=()=>{facing=facing==='environment'?'user':'environment';startCam();};
+handle.onclick=()=>sheet.classList.toggle('open');
+cv.addEventListener('pointerdown',ev=>{
+  const r=cv.getBoundingClientRect();
+  roiTap={x:(ev.clientX-r.left)/r.width,y:(ev.clientY-r.top)/r.height};
+  hint.classList.add('hide');
+});
+init();
+</script>
+</body>
+</html>
