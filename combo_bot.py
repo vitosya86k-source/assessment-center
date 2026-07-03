@@ -43,13 +43,14 @@ WELCOME = (
     "📎 Или пришли *видеозапись* — разберу офлайн: пульс, эмоции, поза, речь + "
     "*состояние* (стресс, утомление, вовлечённость, стрессоустойчивость), давление, "
     "зажимы/SpO₂ и карточки-итоги. Верну сводку + CSV.\n\n"
-    "Команды: /analyze, /help, /status"
+    "Команды: /analyze, /overlay, /live, /help, /status"
 )
 
 HELP = (
     "*Как пользоваться*\n\n"
     "📱 */analyze* — live по камере / файлу / ссылке. Наводишь на человека или видео, "
     "тапаешь по нему — считаю речь, эмоции, позу, пульс в моменте. Переворот камеры и зум — кнопками.\n\n"
+    "🖥 */overlay* — накладка на вкладку браузера (Гранатум/Zoom): захват вкладки, пульс, CSV.\n\n"
     "📎 *Видеозапись* — пришли файл (mp4/mov) или видео-сообщение, подпись = метка участника. "
     "Прогоню полный движок (эмоции/поза/пульс/речь + wellness + состояние Neiry: стресс, "
     "утомление, вовлечённость, стрессоустойчивость, давление) и верну сводку с итогами + CSV.\n\n"
@@ -82,6 +83,37 @@ async def cmd_analyze(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "Камеру внутри Telegram нужно разрешить. Работает и на телефоне, и на ноуте "
         "(в браузере по той же ссылке).",
         reply_markup=kb
+    )
+
+
+async def cmd_overlay(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Накладка на вкладку браузера — захват Гранатума/Zoom, rPPG, CSV."""
+    if not cfg.COMBO_MINIAPP_URL:
+        await update.message.reply_text("⚠️ Задай COMBO_MINIAPP_URL (HTTPS) в .env.")
+        return
+    url = f"{cfg.COMBO_MINIAPP_URL}/browser_overlay.html?cb={int(time.time())}"
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton(
+        "🖥 Накладка на браузер", web_app=WebAppInfo(url=url))]])
+    await update.message.reply_text(
+        "🖥 Накладка на вкладку браузера\n\n"
+        "Открой → «Захватить вкладку» → выбери Гранатум/Zoom → рамка на участника → "
+        "пульс вживую. В конце — «Скачать CSV».\n"
+        "Только пульс/дыхание (JS-rPPG); эмоции/поза — в /analyze или офлайн-видео в бот.",
+        reply_markup=kb,
+    )
+
+
+async def cmd_dashboard(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Пояснение: дашборд паутинки — у пульсового HRV-бота; у АЦ — /analyze и /live."""
+    await update.message.reply_text(
+        "📊 *Дашборд паутинки HRV* — у бота @HRV_monitor_bot (команда /dashboard там).\n\n"
+        "У *АЦ-анализатора* сейчас:\n"
+        "• /analyze — live-метрики (камера/файл/ссылка)\n"
+        "• /overlay — пульс с вкладки браузера + CSV\n"
+        "• /live — панель, когда на ноуте запущен захват Гранатума\n"
+        "• пришли *видео* — полный разбор (wellness, Neiry, CSV)\n\n"
+        "Сводный веб-дашборд АЦ в одной кнопке — в плане, пока не подключён.",
+        parse_mode="Markdown",
     )
 
 
@@ -268,6 +300,8 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("analyze", cmd_analyze))
+    app.add_handler(CommandHandler("overlay", cmd_overlay))
+    app.add_handler(CommandHandler("dashboard", cmd_dashboard))
     app.add_handler(CommandHandler("live", cmd_live))
     app.add_handler(MessageHandler(filters.VIDEO | filters.Document.VIDEO, on_video))
     app.add_handler(MessageHandler(filters.AUDIO | filters.VOICE | filters.Document.AUDIO, on_audio))
