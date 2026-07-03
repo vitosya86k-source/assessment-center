@@ -68,7 +68,7 @@ async def lifespan(app: FastAPI):
     await ptb_app.initialize()
     await ptb_app.start()
     if webhook_url:
-        kwargs = {"url": webhook_url, "drop_pending_updates": True}
+        kwargs = {"url": webhook_url, "drop_pending_updates": False}
         if _webhook_secret:
             kwargs["secret_token"] = _webhook_secret
         await ptb_app.bot.set_webhook(**kwargs)
@@ -76,10 +76,8 @@ async def lifespan(app: FastAPI):
     else:
         logger.error("Webhook не установлен — задайте публичный HTTPS URL (Railway domain)")
     yield
-    try:
-        await ptb_app.bot.delete_webhook(drop_pending_updates=False)
-    except Exception:
-        pass
+    # Не delete_webhook при sleep/restart Railway — иначе Telegram теряет URL,
+    # /start уходит в pending и бот «молчит», пока кто-то не разбудит сервис вручную.
     await ptb_app.stop()
     await ptb_app.shutdown()
 

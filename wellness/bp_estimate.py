@@ -46,17 +46,23 @@ def estimate(pulse: dict, fit: dict | None = None) -> dict:
     """pulse — результат rppg_video.analyze (hr_bpm, rmssd_ms, resp_bpm, confidence)."""
     if not ENABLED:
         return {"available": False, "reason": "BP-оценка выключена (ENABLED=False)"}
-    if not pulse or not pulse.get("ok"):
-        return {"available": False, "reason": "нет надёжного rPPG-сигнала"}
+    if not pulse or not pulse.get("available"):
+        return {"available": False, "reason": "нет пульса с лица"}
 
     f = fit or _load_fit()
+    has_calibration = bool(f.get("calibrated_points"))
     hr = pulse.get("hr_bpm")
-    rm = pulse.get("rmssd_ms")
-    rp = pulse.get("resp_bpm")
     if hr is None:
         return {"available": False, "reason": "нет ЧСС"}
 
+    # Жёсткий gate только без персональной калибровки. После манжеты+кружка в один момент
+    # rPPG часто ok=False (SNR кружка), но ЧСС всё равно годится для оценки с пониженной уверенностью.
+    if not pulse.get("ok") and not has_calibration:
+        return {"available": False, "reason": "нет надёжного rPPG-сигнала"}
+
     c = f["coef"]
+    rm = pulse.get("rmssd_ms")
+    rp = pulse.get("resp_bpm")
     d_hr = hr - f["hr0"]
     # rPPG ВСР/дыхание с короткого видео шумят — берём только в физиологичном диапазоне,
     # иначе зануляем вклад (ЧСС всё равно остаётся опорной).
@@ -70,9 +76,12 @@ def estimate(pulse: dict, fit: dict | None = None) -> dict:
     sbp = max(85, min(180, sbp))
     dbp = max(45, min(110, dbp))
 
-    # уверенность наследуем от качества пульса; без калибровки/обучения — занижаем
-    base_conf = pulse.get("confidence", "low")
-    conf = base_conf if f.get("trained") or _FIT.exists() else "indicative"
+    # уверенность: после калибровки на слабом rPPG — явно «indicative»
+    if not pulse.get("ok"):
+        conf = "indicative"
+    else:
+        base_conf = pulse.get("confidence", "low")
+        conf = base_conf if f.get("trained") or _FIT.exists() else "indicative"
 
     if sbp >= 140 or dbp >= 90:
         tend = "выше обычного — при повторе сверить манжетой"
