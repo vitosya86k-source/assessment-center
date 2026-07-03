@@ -1,2 +1,5 @@
+# ffmpeg — системный; python — через nixpacks provider (иначе pip-фаза не находит python)
+providers = ["python"]
+
 [phases.setup]
-nixPkgs = ["ffmpeg"]
+aptPkgs = ["ffmpeg"]
