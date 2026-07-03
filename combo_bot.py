@@ -38,19 +38,20 @@ WELCOME = (
     "🎛 *Анализ участника ассессмента*\n\n"
     "📱 *Live в моменте:*\n"
     "• */analyze* — камера на человека или на экран (ноут/телефон с видео): речь, эмоции, поза, пульс + CSV\n"
-    "• */overlay* — накладка: панель метрик поверх камеры (удобно, если смотришь Гранатум в браузере телефона)\n\n"
+    "• */overlay* — накладка: камера + HUD + PiP поверх Гранатума в браузере\n"
+    "• */dashboard* — панель: analyze, overlay, история сессий\n\n"
     "📎 Или пришли *видеозапись* — разберу офлайн: пульс, эмоции, поза, речь + "
     "*состояние* (стресс, утомление, вовлечённость, стрессоустойчивость), давление, "
     "зажимы/SpO₂ и карточки-итоги. Верну сводку + CSV.\n\n"
-    "Команды: /analyze, /overlay, /live, /help, /status"
+    "Команды: /analyze, /overlay, /dashboard, /live, /help, /status"
 )
 
 HELP = (
     "*Как пользоваться*\n\n"
     "📱 */analyze* — камера / файл / ссылка. Наводишь на участника или экран с видео — "
     "речь, эмоции, поза, пульс. Запись сессии в CSV.\n\n"
-    "📲 */overlay* — *накладка на телефоне*: камера + панель метрик сверху (смотришь Гранатум "
-    "в соседней вкладке, камера на экран или на человека). CSV в конце.\n\n"
+    "📲 */overlay* — *накладка на телефоне*: камера + HUD, PiP 📌 поверх Гранатума, CSV.\n\n"
+    "📊 */dashboard* — панель АЦ: ссылки на режимы + история сессий на устройстве.\n\n"
     "📎 *Видеозапись* — пришли файл (mp4/mov) или видео-сообщение, подпись = метка участника. "
     "Прогоню полный движок (эмоции/поза/пульс/речь + wellness + состояние Neiry: стресс, "
     "утомление, вовлечённость, стрессоустойчивость, давление) и верну сводку с итогами + CSV.\n\n"
@@ -106,16 +107,23 @@ async def cmd_overlay(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_dashboard(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Пояснение: дашборд паутинки — у пульсового HRV-бота; у АЦ — /analyze и /live."""
+    """Панель АЦ: analyze, overlay, история сессий на устройстве."""
+    if not cfg.COMBO_MINIAPP_URL:
+        await update.message.reply_text(
+            "📊 *Дашборд паутинки HRV* — у @HRV_monitor_bot (/dashboard там).\n\n"
+            "У АЦ: /analyze, /overlay, видео в бот. Для панели задай COMBO_MINIAPP_URL.",
+            parse_mode="Markdown",
+        )
+        return
+    url = f"{cfg.COMBO_MINIAPP_URL}/ac_hub.html?cb={int(time.time())}"
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton(
+        "📊 Панель АЦ", web_app=WebAppInfo(url=url))]])
     await update.message.reply_text(
-        "📊 *Дашборд паутинки HRV* — у бота @HRV_monitor_bot (команда /dashboard там).\n\n"
-        "У *АЦ-анализатора* сейчас:\n"
-        "• /analyze — live-метрики (камера/файл/ссылка)\n"
-        "• /overlay — накладка с камерой на телефоне + CSV\n"
-        "• /live — панель, когда на ноуте запущен захват Гранатума\n"
-        "• пришли *видео* — полный разбор (wellness, Neiry, CSV)\n\n"
-        "Сводный веб-дашборд АЦ в одной кнопке — в плане, пока не подключён.",
+        "📊 *Панель АЦ*\n\n"
+        "Live-анализ, накладка с PiP для Гранатума, история CSV-сессий на этом телефоне.\n\n"
+        "Паутинку HRV — у @HRV_monitor_bot (/dashboard там).",
         parse_mode="Markdown",
+        reply_markup=kb,
     )
 
 

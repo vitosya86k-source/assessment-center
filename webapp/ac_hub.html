@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>АЦ · панель</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{--bg:#0a0e1a;--card:#161d30;--line:#222a40;--txt:#eef2fb;--muted:#8b94ad;--accent:#4fd1c5}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:520px;margin:0 auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+  h1{font-size:20px;margin:0} p.sub{color:var(--muted);font-size:13px;line-height:1.45;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 10px}
+  a.btn,button.btn{display:block;width:100%;text-align:center;border:0;border-radius:12px;padding:13px;
+    font-size:15px;font-weight:700;text-decoration:none;cursor:pointer;margin-bottom:8px}
+  a.primary,button.primary{background:linear-gradient(180deg,#4fd1c5,#36b3a8);color:#06211e}
+  a.secondary,button.secondary{background:#252c41;color:var(--txt)}
+  .sess{font-size:12.5px;border-top:1px solid var(--line);padding:8px 0;color:var(--muted)}
+  .sess b{color:var(--txt)}
+  .empty{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>Ассессмент · панель</h1>
+    <p class="sub">Live на телефоне, накладка при просмотре Гранатума, полный разбор — видео в бот.</p>
+  </div>
+  <div class="card">
+    <h2>Режимы</h2>
+    <a class="btn primary" id="goAnalyze">📷 Live-анализ (камера / файл)</a>
+    <a class="btn primary" id="goOverlay">📲 Накладка + PiP (Гранатум в браузере)</a>
+    <a class="btn secondary" id="goTab">🖥 Захват вкладки (только ПК)</a>
+  </div>
+  <div class="card">
+    <h2>Последние сессии (на этом телефоне)</h2>
+    <div id="sessions" class="empty">Пока нет записанных сессий</div>
+  </div>
+  <div class="card">
+    <h2>Полный разбор</h2>
+    <p class="sub">Пришли mp4 в @assessment_center_analyzer_bot — wellness, Neiry, CSV на сервере.</p>
+  </div>
+</div>
+<script>
+const TG=window.Telegram?.WebApp; if(TG){try{TG.expand();TG.ready();}catch(e){}}
+const base=location.origin+location.pathname.replace(/[^/]+$/, '');
+document.getElementById('goAnalyze').href=base+'phone_analyze.html';
+document.getElementById('goOverlay').href=base+'mobile_overlay.html';
+document.getElementById('goTab').href=base+'browser_overlay.html';
+function renderSessions(){
+  let all=[];
+  try{
+    for(const k of ['ac_overlay_sessions','ac_analyze_sessions']){
+      const arr=JSON.parse(localStorage.getItem(k)||'[]');
+      all=all.concat(arr.map(x=>({...x,kind:k.includes('overlay')?'накладка':'analyze'})));
+    }
+  }catch(e){}
+  all.sort((a,b)=>String(b.started_at).localeCompare(String(a.started_at)));
+  const el=document.getElementById('sessions');
+  if(!all.length){el.textContent='Пока нет записанных сессий';return;}
+  el.innerHTML=all.slice(0,8).map(s=>`<div class="sess"><b>${s.kind}</b> · ${s.started_at||'—'} · точек ${s.points||0} · HR ср. ${s.hr_avg??'—'}</div>`).join('');
+}
+renderSessions();
+</script>
+</body>
+</html>

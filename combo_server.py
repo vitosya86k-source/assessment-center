@@ -21,7 +21,8 @@ logger = logging.getLogger("combo_server")
 _BASE = Path(__file__).resolve().parent
 _WEBAPP = Path(os.environ.get("COMBO_WEBAPP_DIR", str(_BASE / "webapp")))
 _VIDEO_SUFFIXES = {".mp4", ".mov", ".webm", ".mkv", ".m4v", ".avi"}
-_WEBAPP_PAGES = ("phone_analyze.html", "combo_live.html", "browser_overlay.html", "mobile_overlay.html")
+_WEBAPP_PAGES = ("phone_analyze.html", "combo_live.html", "browser_overlay.html", "mobile_overlay.html", "ac_hub.html")
+_WEBAPP_ASSETS = ("ac_neiry.js",)
 
 
 def _public_base_url() -> str:
@@ -123,3 +124,17 @@ def _webapp_route(page: str):
 
 for _page in _WEBAPP_PAGES:
     _webapp_route(_page)
+
+
+def _webapp_asset(page: str, media: str):
+    path = _WEBAPP / page
+    if not path.exists():
+        return
+
+    @app.get(f"/{page}")
+    async def _serve(_p=path, _m=media):
+        return FileResponse(str(_p), media_type=_m)
+
+
+for _asset in _WEBAPP_ASSETS:
+    _webapp_asset(_asset, "application/javascript")

@@ -4,101 +4,136 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Накладка · live-метрики</title>
+<title>Накладка АЦ</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-  :root{--ok:#4fd1c5;--watch:#ffb454;--bad:#ff6b6b;--glass:rgba(12,16,28,.82)}
+  :root{--ok:#4fd1c5;--watch:#ffb454;--bad:#ff6b6b;--glass:rgba(8,12,22,.88)}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
-  html,body{height:100%;background:#000;color:#eef2fb;
-    font-family:-apple-system,"SF Pro Text","Segoe UI",Roboto,sans-serif;overflow:hidden}
-  #cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+  html,body{height:100%;background:#000;color:#eef2fb;font-family:-apple-system,"SF Pro Text","Segoe UI",Roboto,sans-serif;overflow:hidden}
+  #vid{position:fixed;width:1px;height:1px;opacity:0;pointer-events:none}
   #cv{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;touch-action:manipulation}
-  .hud{position:fixed;left:0;right:0;top:0;padding:max(10px,env(safe-area-inset-top)) 12px 10px;
-    background:linear-gradient(180deg,rgba(0,0,0,.75),transparent);z-index:10;pointer-events:none}
-  .hud>*{pointer-events:auto}
-  .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  .pill{background:var(--glass);backdrop-filter:blur(8px);border-radius:999px;padding:6px 12px;
-    font-size:13px;font-weight:650;border:1px solid rgba(255,255,255,.08)}
-  .hr{font-size:28px;font-weight:800;letter-spacing:-.03em;line-height:1}
-  .hr small{font-size:14px;font-weight:600;opacity:.75}
+  .hud{position:fixed;left:0;right:0;top:0;padding:max(8px,env(safe-area-inset-top)) 10px 8px;
+    background:linear-gradient(180deg,rgba(0,0,0,.82),transparent);z-index:10}
+  .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .pill{background:var(--glass);backdrop-filter:blur(10px);border-radius:999px;padding:5px 10px;
+    font-size:12px;font-weight:650;border:1px solid rgba(255,255,255,.1)}
+  .hr{font-size:26px;font-weight:800;line-height:1}.hr small{font-size:13px;opacity:.75}
   .rec.on .dot{background:var(--bad);box-shadow:0 0 8px var(--bad)}
-  .dot{width:8px;height:8px;border-radius:50%;background:#555;display:inline-block;margin-right:6px}
-  .sheet{position:fixed;left:0;right:0;bottom:0;max-height:42vh;background:var(--glass);
-    backdrop-filter:blur(12px);border-radius:18px 18px 0 0;padding:10px 14px max(14px,env(safe-area-inset-bottom));
-    z-index:11;transform:translateY(calc(100% - 52px));transition:transform .25s ease;border-top:1px solid rgba(255,255,255,.1)}
+  .dot{width:7px;height:7px;border-radius:50%;background:#555;display:inline-block;margin-right:5px}
+  .warnbar{position:fixed;left:10px;right:10px;top:max(52px,env(safe-area-inset-top));z-index:9;
+    background:rgba(255,140,66,.92);color:#1a1000;font-size:12px;padding:8px 10px;border-radius:10px;display:none}
+  .warnbar.show{display:block}
+  .sheet{position:fixed;left:0;right:0;bottom:0;max-height:50vh;background:var(--glass);
+    backdrop-filter:blur(14px);border-radius:18px 18px 0 0;padding:8px 14px max(12px,env(safe-area-inset-bottom));
+    z-index:11;transform:translateY(calc(100% - 48px));transition:transform .25s}
   .sheet.open{transform:translateY(0)}
-  .handle{width:36px;height:4px;border-radius:99px;background:rgba(255,255,255,.25);margin:0 auto 8px}
-  .sheet h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#8b94ad;margin:4px 0 8px}
-  .mrow{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px}
+  .handle{width:34px;height:4px;border-radius:99px;background:rgba(255,255,255,.28);margin:0 auto 8px}
+  .sheet h2{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#8b94ad;margin:0 0 6px}
+  .mrow{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12.5px}
   .mrow:last-child{border:0}
   .val{font-weight:700;font-variant-numeric:tabular-nums}
   .ok{color:var(--ok)}.watch{color:var(--watch)}.bad{color:var(--bad)}
-  .btns{position:fixed;right:10px;bottom:max(62px,calc(52px + env(safe-area-inset-bottom)));z-index:12;
-    display:flex;flex-direction:column;gap:8px}
-  .btns button{width:46px;height:46px;border-radius:50%;border:0;background:var(--glass);color:#fff;
-    font-size:20px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12)}
-  .hint{position:fixed;left:12px;right:12px;top:50%;transform:translateY(-20px);text-align:center;
-    font-size:14px;color:#cfd6e8;background:rgba(0,0,0,.55);padding:12px;border-radius:12px;z-index:9;
-    pointer-events:none;line-height:1.45}
+  .btns{position:fixed;right:8px;bottom:max(58px,calc(48px + env(safe-area-inset-bottom)));z-index:12;
+    display:flex;flex-direction:column;gap:7px}
+  .btns button{width:44px;height:44px;border-radius:50%;border:0;background:var(--glass);color:#fff;
+    font-size:18px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.14)}
+  .btns button.on{background:rgba(79,209,197,.35);border-color:var(--ok)}
+  .hint{position:fixed;left:10px;right:10px;top:42%;transform:translateY(-50%);text-align:center;
+    font-size:13px;color:#dfe6f5;background:rgba(0,0,0,.62);padding:12px;border-radius:12px;z-index:8;line-height:1.45}
   .hint.hide{display:none}
-  video{display:none}
+  .steps{font-size:12px;color:#9aa6c0;line-height:1.4;margin:6px 0 8px}
+  .urlrow{display:flex;gap:6px;margin:6px 0}
+  .urlrow input{flex:1;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.35);color:#fff;
+    border-radius:8px;padding:8px;font-size:12px}
+  .urlrow button{border:0;border-radius:8px;padding:0 12px;background:var(--ok);color:#06211e;font-weight:700}
+  body.compact .sheet{transform:translateY(calc(100% - 36px))}
+  body.compact .hint{display:none}
 </style>
 </head>
 <body>
 <video id="vid" playsinline muted autoplay></video>
+<video id="pipVid" playsinline muted autoplay style="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none"></video>
 <canvas id="cv"></canvas>
-<div class="hint" id="hint">Наведи камеру на участника или на экран с видео.<br>Тапни по лицу — кого смотреть.</div>
+<div class="hint" id="hint">
+  <b>Накладка для телефона</b><br>
+  1) ● запись → 2) 📌 PiP → 3) 🌐 Гранатум в браузере<br>
+  Камера на участника или на экран телефона. Тап по лицу.
+</div>
+<div class="warnbar" id="warn">Вкладка в фоне — метрики могут остановиться. Используй PiP 📌</div>
 <div class="hud">
   <div class="row">
     <div class="pill"><span class="hr"><span id="hr">—</span><small> уд/мин</small></span></div>
-    <div class="pill" id="q">ожидаю сигнал</div>
+    <div class="pill" id="q">…</div>
+    <div class="pill" id="stress">стресс —</div>
     <div class="pill rec" id="recpill"><span class="dot"></span><span id="rectxt">запись</span></div>
     <div class="pill" id="timer">0:00</div>
   </div>
 </div>
 <div class="btns">
+  <button id="pip" title="PiP">📌</button>
+  <button id="gran" title="Гранатум">🌐</button>
   <button id="flip" title="камера">🔄</button>
+  <button id="compact" title="компакт">▭</button>
   <button id="rec" title="запись">●</button>
   <button id="csv" title="CSV" disabled>⬇</button>
 </div>
 <div class="sheet" id="sheet">
   <div class="handle" id="handle"></div>
-  <h2>Метрики сессии</h2>
+  <p class="steps">PiP держит накладку поверх, пока Гранатум открыт в Safari/Chrome. Split-screen — тоже ок.</p>
+  <div class="urlrow">
+    <input id="gurl" type="url" placeholder="ссылка на сессию Гранатума">
+    <button id="gopen" type="button">→</button>
+  </div>
+  <h2>Метрики · Neiry (live-прокси)</h2>
   <div id="metrics"></div>
 </div>
 
 <script type="module">
 import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+import { computeNeiry, computeResilience, saveSession } from "./ac_neiry.js";
+
 const TG=window.Telegram?.WebApp; if(TG){try{TG.expand();TG.ready();}catch(e){}}
 
-const video=document.getElementById('vid'), cv=document.getElementById('cv');
+const video=document.getElementById('vid'), pipVid=document.getElementById('pipVid'), cv=document.getElementById('cv');
 const ctx=cv.getContext('2d',{willReadFrequently:true});
-const hrEl=document.getElementById('hr'), qEl=document.getElementById('q');
-const recBtn=document.getElementById('rec'), csvBtn=document.getElementById('csv');
+const hrEl=document.getElementById('hr'), qEl=document.getElementById('q'), stressEl=document.getElementById('stress');
+const recBtn=document.getElementById('rec'), csvBtn=document.getElementById('csv'), pipBtn=document.getElementById('pip');
 const recPill=document.getElementById('recpill'), recTxt=document.getElementById('rectxt');
 const timerEl=document.getElementById('timer'), metricsEl=document.getElementById('metrics');
 const sheet=document.getElementById('sheet'), handle=document.getElementById('handle');
-const hint=document.getElementById('hint');
+const hint=document.getElementById('hint'), warn=document.getElementById('warn');
+const gurl=document.getElementById('gurl');
 
-let face=null, ready=false, facing='environment', roiTap=null;
-let rgbBuf=[], series=[], recording=false, recT0=0, timerIv=null;
-let lastPulse=0, hrVal=null, snrVal=0, faceTs=0;
+let face=null, ready=false, facing='environment', roiTap=null, compact=false;
+let rgbBuf=[], series=[], recording=false, recT0=0, timerIv=null, wakeLock=null;
+let lastPulse=0, hrVal=null, snrVal=0, faceTs=0, faceOk=false;
 let speechWin=[], micStream=null, analyser=null, audioBuf=null, audioCtx=null;
-let lastSpeech=0, emoDom='—', speechTempo='—';
+let lastSpeech=0, emoDom='—', speechTempo=0, pausePct=0, pitchStd=0, arousal=0, valence=0;
+let fidgetEma=0, headTilt=0, prevNose=null, stressHist=[];
+let pipStream=null;
 
 const mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
 const std=a=>{const m=mean(a);return Math.sqrt(mean(a.map(x=>(x-m)**2)));};
 
+gurl.value=localStorage.getItem('ac_granatum_url')||'';
+document.getElementById('gopen').onclick=()=>{
+  const u=gurl.value.trim(); if(!u) return;
+  localStorage.setItem('ac_granatum_url',u);
+  if(TG?.openLink) TG.openLink(u); else window.open(u,'_blank');
+};
+
+document.addEventListener('visibilitychange',()=>{
+  warn.classList.toggle('show', document.hidden && recording);
+});
+
 async function init(){
   try{
     const fs=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
-    try{
-      face=await FaceLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",delegate:"GPU"},runningMode:"VIDEO",numFaces:3,outputFaceBlendshapes:true});
-    }catch(e){
-      face=await FaceLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",delegate:"CPU"},runningMode:"VIDEO",numFaces:3,outputFaceBlendshapes:true});
-    }
-    ready=true;
-  }catch(e){ qEl.textContent='нет сети для моделей'; }
+    const opts={baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",delegate:"GPU"},runningMode:"VIDEO",numFaces:3,outputFaceBlendshapes:true};
+    try{ face=await FaceLandmarker.createFromOptions(fs,opts); }
+    catch(e){ face=await FaceLandmarker.createFromOptions(fs,{...opts,baseOptions:{...opts.baseOptions,delegate:"CPU"}}); }
+    ready=true; qEl.textContent='камера';
+  }catch(e){ qEl.textContent='нет сети'; }
   await startCam();
   requestAnimationFrame(loop);
 }
@@ -109,10 +144,10 @@ async function startCam(){
     micStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1280}},audio:true});
     video.srcObject=micStream; await video.play();
     const ac=audioCtx||(audioCtx=new (window.AudioContext||window.webkitAudioContext)());
-    const s=ac.createMediaStreamSource(micStream);
-    analyser=ac.createAnalyser(); analyser.fftSize=2048; s.connect(analyser);
+    analyser=ac.createAnalyser(); analyser.fftSize=2048;
+    ac.createMediaStreamSource(micStream).connect(analyser);
     audioBuf=new Float32Array(analyser.fftSize);
-  }catch(e){ qEl.innerHTML='<span class="bad">нет камеры — нужен HTTPS</span>'; }
+  }catch(e){ qEl.innerHTML='<span class="bad">нет камеры</span>'; }
 }
 
 function draw(){
@@ -121,7 +156,7 @@ function draw(){
   const scale=Math.max(cv.width/vw, cv.height/vh);
   const dw=vw*scale, dh=vh*scale, ox=(cv.width-dw)/2, oy=(cv.height-dh)/2;
   ctx.drawImage(video, ox, oy, dw, dh);
-  return {vw,vh,ox,oy,scale};
+  return true;
 }
 
 function sampleAudio(){
@@ -135,20 +170,25 @@ function sampleAudio(){
 function loop(){
   requestAnimationFrame(loop);
   if(!ready||video.readyState<2) return;
-  const g=draw(); if(!g) return;
+  if(!draw()) return;
   const ts=performance.now();
   sampleAudio();
+  faceOk=false;
   let fr=null;
   try{ faceTs=Math.max(faceTs+1,Math.round(ts)); fr=face.detectForVideo(cv,faceTs); }catch(e){}
   if(fr?.faceLandmarks?.length){
     let bi=0;
-    if(fr.faceLandmarks.length>1){
-      if(roiTap){ let bd=1e9; fr.faceLandmarks.forEach((lm,i)=>{const d=(lm[1].x-roiTap.x)**2+(lm[1].y-roiTap.y)**2;if(d<bd){bd=d;bi=i;}}); }
-      else { let ba=0; fr.faceLandmarks.forEach((lm,i)=>{const xs=lm.map(p=>p.x),ys=lm.map(p=>p.y);const a=(Math.max(...xs)-Math.min(...xs))*(Math.max(...ys)-Math.min(...ys));if(a>ba){ba=a;bi=i;}}); }
+    if(fr.faceLandmarks.length>1 && roiTap){
+      let bd=1e9; fr.faceLandmarks.forEach((lm,i)=>{const d=(lm[1].x-roiTap.x)**2+(lm[1].y-roiTap.y)**2;if(d<bd){bd=d;bi=i;}});
+    } else if(fr.faceLandmarks.length>1) {
+      let ba=0; fr.faceLandmarks.forEach((lm,i)=>{const xs=lm.map(p=>p.x),ys=lm.map(p=>p.y);const a=(Math.max(...xs)-Math.min(...xs))*(Math.max(...ys)-Math.min(...ys));if(a>ba){ba=a;bi=i;}});
     }
-    const lm=fr.faceLandmarks[bi];
+    const lm=fr.faceLandmarks[bi]; faceOk=true;
+    const nose=lm[1];
+    if(prevNose){ const d=Math.hypot(nose.x-prevNose.x,nose.y-prevNose.y); fidgetEma=0.9*fidgetEma+0.1*d; }
+    prevNose=nose;
     const idx=[10,67,297,109,338,151];
-    let xs=idx.map(i=>lm[i].x*cv.width), ys=idx.map(i=>lm[i].y*cv.height);
+    const xs=idx.map(i=>lm[i].x*cv.width), ys=idx.map(i=>lm[i].y*cv.height);
     const x0=Math.max(0,Math.min(...xs)), x1=Math.min(cv.width,Math.max(...xs));
     const y0=Math.max(0,Math.min(...ys)), y1=Math.min(cv.height,Math.max(...ys));
     if(x1-x0>4){
@@ -156,11 +196,13 @@ function loop(){
       let r=0,g=0,b=0,n=0; for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}
       rgbBuf.push({t:ts,r:r/n,g:g/n,b:b/n}); if(rgbBuf.length>600) rgbBuf.shift();
     }
-    ctx.strokeStyle='#4fd1c5'; ctx.lineWidth=3; ctx.strokeRect(x0,y0,x1-x0,y1-y0);
+    ctx.strokeStyle='#4fd1c5'; ctx.lineWidth=compact?2:3;
+    ctx.strokeRect(x0,y0,x1-x0,y1-y0);
     if(fr.faceBlendshapes?.[bi]) updateEmo(fr.faceBlendshapes[bi].categories);
   }
   if(ts-lastPulse>1000){ lastPulse=ts; computePulse(); }
   if(ts-lastSpeech>1200){ lastSpeech=ts; computeSpeech(); }
+  updateNeiryHud();
   if(recording && hrVal) pushSample();
   renderMetrics();
 }
@@ -169,8 +211,11 @@ function bs(c,n){const c0=c.find(x=>x.categoryName===n);return c0?c0.score:0;}
 function updateEmo(cats){
   const smile=(bs(cats,'mouthSmileLeft')+bs(cats,'mouthSmileRight'))/2;
   const frown=(bs(cats,'mouthFrownLeft')+bs(cats,'mouthFrownRight'))/2;
-  const brow=bs(cats,'browDownLeft')+bs(cats,'browDownRight');
-  if(smile>0.4) emoDom='радость'; else if(brow>0.4) emoDom='напряжение'; else if(frown>0.3) emoDom='сдержанность'; else emoDom='нейтрально';
+  const brow=(bs(cats,'browDownLeft')+bs(cats,'browDownRight'))/2;
+  const eyeWide=(bs(cats,'eyeWideLeft')+bs(cats,'eyeWideRight'))/2;
+  valence=Math.max(-1,Math.min(1,smile-frown-brow*0.5));
+  arousal=Math.max(0,Math.min(1,(eyeWide+brow)/2));
+  if(smile>0.4) emoDom='радость'; else if(brow>0.4) emoDom='напряжение'; else emoDom='нейтрально';
 }
 
 function posSig(R,G,B){
@@ -187,56 +232,108 @@ function computePulse(){
   for(let f=0.7;f<=3;f+=0.01){let re=0,im=0;for(let i=0;i<sig.length;i++){const a=2*Math.PI*f*i/fps;re+=sig[i]*Math.cos(a);im-=sig[i]*Math.sin(a);}const p=(re*re+im*im)/sig.length;tot+=p;k++;if(p>best.p)best={f,p};}
   hrVal=Math.round(best.f*60); snrVal=best.p/((tot/k)||1e-9);
   hrEl.textContent=hrVal;
-  if(snrVal>=2.2) qEl.innerHTML='<span class="ok">сигнал ок</span>';
-  else if(snrVal>=1.3) qEl.innerHTML='<span class="watch">средний</span>';
-  else qEl.innerHTML='<span class="bad">слабый</span>';
+  if(snrVal>=2.2) qEl.innerHTML='<span class="ok">SNR ок</span>';
+  else if(snrVal>=1.3) qEl.innerHTML='<span class="watch">средн.</span>';
+  else qEl.innerHTML='<span class="bad">шум</span>';
 }
 function computeSpeech(){
   const w=speechWin; if(w.length<8) return;
   let on=0; for(let i=1;i<w.length;i++) if(w[i].voiced&&!w[i-1].voiced) on++;
   const sec=(w[w.length-1].t-w[0].t)/1000;
-  speechTempo=sec>0?Math.round(on/(sec/60))+'/мин':'—';
+  speechTempo=sec>0?Math.round(on/(sec/60)):0;
+  const voiced=w.filter(s=>s.voiced).length;
+  pausePct=Math.round((1-voiced/w.length)*100);
+}
+
+function updateNeiryHud(){
+  const n=computeNeiry({hr:hrVal,arousal,valence,tempo:speechTempo,pausePct,pitchStd,fidget:fidgetEma,headTilt,faceOk});
+  if(n.stress!=null){
+    stressHist.push(n.stress); if(stressHist.length>30) stressHist.shift();
+    stressEl.textContent=`S${n.stress} F${n.fatigue??'—'}`;
+  }
+  window._neiry=n;
+  window._resilience=computeResilience(stressHist);
 }
 
 function pushSample(){
-  series.push({t_iso:new Date().toISOString(), hr_bpm:hrVal, snr:+snrVal.toFixed(2), emotion:emoDom, speech_tempo:speechTempo});
+  const n=window._neiry||{};
+  series.push({t_iso:new Date().toISOString(),hr_bpm:hrVal,snr:+snrVal.toFixed(2),emotion:emoDom,speech_tempo:speechTempo,
+    stress:n.stress,fatigue:n.fatigue,engagement:n.engagement});
   csvBtn.disabled=false;
 }
 
 function renderMetrics(){
+  const n=window._neiry||{}, res=window._resilience;
   metricsEl.innerHTML=[
-    ['Пульс', hrVal?hrVal+' уд/мин':'—', snrVal<1.3?'bad':'ok'],
-    ['SNR', snrVal?snrVal.toFixed(1):'—', ''],
-    ['Эмоция (мимика)', emoDom, ''],
-    ['Темп речи', speechTempo, ''],
-    ['Точек в CSV', series.length, ''],
-  ].map(([n,v,c])=>`<div class="mrow"><span>${n}</span><span class="val ${c}">${v}</span></div>`).join('');
+    ['Пульс',hrVal?hrVal+' уд/мин':'—',snrVal<1.3?'bad':'ok'],
+    ['Стресс (live)',n.stress??'—',''],
+    ['Утомление',n.fatigue??'—',''],
+    ['Вовлечённость',n.engagement??'—',''],
+    ['Стрессоустойчивость',res??'—',''],
+    ['Эмоция',emoDom,''],
+    ['Темп речи',speechTempo?speechTempo+'/мин':'—',''],
+    ['Точек CSV',series.length,''],
+  ].map(([a,b,c])=>`<div class="mrow"><span>${a}</span><span class="val ${c}">${b}</span></div>`).join('');
+  if(n.verdict) metricsEl.innerHTML+=`<div class="mrow"><span>Итог</span><span class="val">${n.verdict}</span></div>`;
 }
 
-function fmtTimer(s){const m=Math.floor(s/60),ss=String(s%60).padStart(2,'0');return m+':'+ss;}
+function fmtTimer(s){return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
 
-recBtn.onclick=()=>{
+async function setWakeLock(on){
+  try{
+    if(on && 'wakeLock' in navigator) wakeLock=await navigator.wakeLock.request('screen');
+    else if(wakeLock){ await wakeLock.release(); wakeLock=null; }
+  }catch(e){}
+}
+
+recBtn.onclick=async()=>{
   recording=!recording;
   recPill.classList.toggle('on',recording);
   recTxt.textContent=recording?'идёт':'запись';
-  recBtn.style.color=recording?'#ff6b6b':'#fff';
+  recBtn.classList.toggle('on',recording);
   if(recording){
-    recT0=Date.now();
+    recT0=Date.now(); series=[]; stressHist=[];
     timerIv=setInterval(()=>{timerEl.textContent=fmtTimer(Math.floor((Date.now()-recT0)/1000));},1000);
+    await setWakeLock(true);
+    hint.classList.add('hide');
   }else{
-    clearInterval(timerIv);
+    clearInterval(timerIv); await setWakeLock(false);
+    if(series.length){
+      const hrs=series.map(s=>s.hr_bpm).filter(Boolean);
+      saveSession('ac_overlay_sessions',{started_at:new Date(recT0).toISOString(),points:series.length,
+        hr_avg:hrs.length?Math.round(mean(hrs)):null,kind:'overlay'});
+    }
   }
 };
+
 csvBtn.onclick=()=>{
   if(!series.length) return;
-  const head='t_iso,hr_bpm,snr,emotion,speech_tempo\n';
-  const rows=series.map(r=>`${r.t_iso},${r.hr_bpm},${r.snr},${r.emotion},${r.speech_tempo}`).join('\n');
+  const head='t_iso,hr_bpm,snr,emotion,speech_tempo,stress,fatigue,engagement\n';
+  const rows=series.map(r=>`${r.t_iso},${r.hr_bpm},${r.snr},${r.emotion},${r.speech_tempo},${r.stress??''},${r.fatigue??''},${r.engagement??''}`).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([head+rows],{type:'text/csv'}));
   a.download='ac_overlay_'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';
   a.click(); URL.revokeObjectURL(a.href);
 };
+
+pipBtn.onclick=async()=>{
+  try{
+    if(document.pictureInPictureElement){
+      await document.exitPictureInPicture(); pipBtn.classList.remove('on'); return;
+    }
+    if(!pipStream) pipStream=cv.captureStream(12);
+    pipVid.srcObject=pipStream; await pipVid.play();
+    if(!pipVid.requestPictureInPicture) throw new Error('no pip');
+    await pipVid.requestPictureInPicture();
+    pipBtn.classList.add('on');
+    hint.classList.add('hide');
+  }catch(e){ alert('PiP недоступен в этом браузере. Используй split-screen.'); }
+};
+pipVid.addEventListener('leavepictureinpicture',()=>pipBtn.classList.remove('on'));
+
 document.getElementById('flip').onclick=()=>{facing=facing==='environment'?'user':'environment';startCam();};
+document.getElementById('gran').onclick=()=>document.getElementById('gopen').click();
+document.getElementById('compact').onclick=()=>{compact=!compact; document.body.classList.toggle('compact',compact);};
 handle.onclick=()=>sheet.classList.toggle('open');
 cv.addEventListener('pointerdown',ev=>{
   const r=cv.getBoundingClientRect();

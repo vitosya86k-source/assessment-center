@@ -67,6 +67,7 @@
   <div class="grp" id="g_emo"><div class="gt">🙂 Эмоции</div><div id="emo"></div></div>
   <div class="grp" id="g_pose"><div class="gt">🧍 Поза</div><div id="pose"></div></div>
   <div class="grp" id="g_pulse"><div class="gt">❤️ Пульс по видео</div><div id="pulse"></div></div>
+  <div class="grp" id="g_neiry"><div class="gt">📊 Состояние (live)</div><div id="neiry"></div></div>
   <p class="note">Камера/файл — сразу; по ссылке — если видео с CORS. Метрики на телефоне (MediaPipe). Маркеры, не медприбор.</p>
   <div class="row" style="padding:8px 0;gap:8px">
     <button id="recbtn" style="flex:1;border:0;border-radius:10px;padding:10px;background:#252c41;color:#eef2fb;font-weight:700">● Запись CSV</button>
@@ -79,6 +80,7 @@
 
 <script type="module">
 import { FaceLandmarker, PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+import { computeNeiry, computeResilience, saveSession } from "./ac_neiry.js";
 const TG = window.Telegram?.WebApp; if(TG){ try{TG.expand();TG.ready();}catch(e){} }
 
 const video=document.getElementById('src'), cv=document.getElementById('view');
@@ -92,7 +94,7 @@ const rgbBuf=[]; let lastPulse=0, hrVal=null, snrVal=0;
 const speechWin=[]; let lastSpeechCalc=0;
 let prevNose=null, fidgetEma=0;
 let faceTs=0, poseTs=0, frameN=0;
-let recording=false, csvSeries=[];
+let recording=false, csvSeries=[], stressHist=[], lastValence=0, lastArousal=0, lastPausePct=0, lastTempo=0;
 const mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
 const std=a=>{const m=mean(a);return Math.sqrt(mean(a.map(x=>(x-m)**2)));};
 
@@ -214,6 +216,7 @@ function updateEmotion(cats){
   const jaw=bs(cats,'jawOpen'), browUp=bs(cats,'browInnerUp');
   const val=Math.max(-1,Math.min(1, smile - frown - browDown*0.5));
   const ar=Math.max(0,Math.min(1,(eyeWide+jaw+browUp)/2));
+  lastValence=val; lastArousal=ar;
   let dom='Нейтральность';
   if(smile>0.4) dom='Радость'; else if(browDown>0.4) dom='Напряжение';
   else if(eyeWide>0.4||jaw>0.5) dom='Удивление'; else if(frown>0.3||browUp>0.5) dom='Грусть';
@@ -266,6 +269,17 @@ function computeSpeech(){
     ['Вариативность интонации', Math.round(pstd)+' гц', ''],
     ['Питч', Math.round(pitch)+' гц', ''],
   ],0);
+  lastPausePct=pausePct; lastTempo=tempo;
+  const n=computeNeiry({hr:hrVal,arousal:lastArousal,valence:lastValence,tempo,pausePct,
+    pitchStd:pstd,fidget:fidgetEma,headTilt:tilt,faceOk:true});
+  if(n.stress!=null){stressHist.push(n.stress);if(stressHist.length>30)stressHist.shift();}
+  const res=computeResilience(stressHist);
+  renderRows('neiry',[
+    ['Стресс', n.stress??'—', (n.stress??0)>=65?'watch':'ok'],
+    ['Утомление', n.fatigue??'—', (n.fatigue??0)>=55?'watch':'ok'],
+    ['Вовлечённость', n.engagement??'—', ''],
+    ['Стрессоустойчивость', res??'—', ''],
+  ], (n.stress??0)>=65?2:0);
 }
 function pctl(a,p){const s=[...a].sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.floor(p/100*s.length))];}
 
@@ -273,7 +287,9 @@ function pushCsvSample(){
   const w=speechWin; let tempo='';
   if(w.length>=8){ let on=0; for(let i=1;i<w.length;i++) if(w[i].voiced&&!w[i-1].voiced) on++;
     const sec=(w[w.length-1].t-w[0].t)/1000; tempo=sec>0?String(Math.round(on/(sec/60))):''; }
-  csvSeries.push({t_iso:new Date().toISOString(), hr_bpm:hrVal??'', snr:snrVal?+snrVal.toFixed(2):'', speech_tempo:tempo});
+  const n=computeNeiry({hr:hrVal,arousal:lastArousal,valence:lastValence,tempo:+tempo||lastTempo,pausePct:lastPausePct,fidget:fidgetEma,faceOk:!!hrVal});
+  csvSeries.push({t_iso:new Date().toISOString(), hr_bpm:hrVal??'', snr:snrVal?+snrVal.toFixed(2):'',
+    speech_tempo:tempo,stress:n.stress??'',fatigue:n.fatigue??''});
   document.getElementById('csvbtn').disabled=false;
 }
 
@@ -300,11 +316,17 @@ document.getElementById('recbtn').onclick=()=>{
   recording=!recording;
   document.getElementById('recbtn').textContent=recording?'■ Стоп запись':'● Запись CSV';
   document.getElementById('recbtn').style.background=recording?'#ff4757':'#252c41';
+  if(recording){ csvSeries=[]; stressHist=[]; }
 };
 document.getElementById('csvbtn').onclick=()=>{
   if(!csvSeries.length) return;
-  const head='t_iso,hr_bpm,snr,speech_tempo\n';
-  const rows=csvSeries.map(r=>`${r.t_iso},${r.hr_bpm},${r.snr},${r.speech_tempo}`).join('\n');
+  if(csvSeries.length){
+    const hrs=csvSeries.map(s=>+s.hr_bpm).filter(x=>x>0);
+    saveSession('ac_analyze_sessions',{started_at:csvSeries[0].t_iso,points:csvSeries.length,
+      hr_avg:hrs.length?Math.round(hrs.reduce((a,b)=>a+b,0)/hrs.length):null,kind:'analyze'});
+  }
+  const head='t_iso,hr_bpm,snr,speech_tempo,stress,fatigue\n';
+  const rows=csvSeries.map(r=>`${r.t_iso},${r.hr_bpm},${r.snr},${r.speech_tempo},${r.stress},${r.fatigue}`).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([head+rows],{type:'text/csv'}));
   a.download='ac_analyze_'+new Date().toISOString().replace(/[:.]/g,'-')+'.csv';
