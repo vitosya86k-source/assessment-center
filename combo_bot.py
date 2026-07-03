@@ -59,6 +59,16 @@ HELP = (
 )
 
 
+def _miniapp_kb(label: str, page: str) -> tuple[str, InlineKeyboardMarkup]:
+    """URL мини-апки + клавиатура: Web App и запасная ссылка в браузер."""
+    url = f"{cfg.COMBO_MINIAPP_URL}/{page}?cb={int(time.time())}"
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton(label, web_app=WebAppInfo(url=url))],
+        [InlineKeyboardButton("🌐 Открыть в браузере", url=url)],
+    ])
+    return url, kb
+
+
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_markdown(WELCOME)
 
@@ -75,15 +85,13 @@ async def cmd_analyze(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             "phone_analyze.html) в .env."
         )
         return
-    url = f"{cfg.COMBO_MINIAPP_URL}/phone_analyze.html?cb={int(time.time())}"
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton(
-        "📷 Открыть анализ", web_app=WebAppInfo(url=url))]])
+    url, kb = _miniapp_kb("📷 Открыть анализ", "phone_analyze.html")
     await update.message.reply_text(
         "📷 Live-анализ по видео — Камера / Файл / Ссылка\n\n"
         "Открой → выбери источник → тапни по человеку (кого смотреть) → метрики вживую.\n"
         "Камеру внутри Telegram нужно разрешить. Работает и на телефоне, и на ноуте "
         "(в браузере по той же ссылке).",
-        reply_markup=kb
+        reply_markup=kb,
     )
 
 
@@ -92,16 +100,13 @@ async def cmd_overlay(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not cfg.COMBO_MINIAPP_URL:
         await update.message.reply_text("⚠️ Задай COMBO_MINIAPP_URL (HTTPS) в .env.")
         return
-    url = f"{cfg.COMBO_MINIAPP_URL}/mobile_overlay.html?cb={int(time.time())}"
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton(
-        "📲 Накладка (камера)", web_app=WebAppInfo(url=url))]])
+    _, kb = _miniapp_kb("📲 Накладка (камера)", "mobile_overlay.html")
     await update.message.reply_text(
-        "📲 *Накладка на телефоне*\n\n"
-        "Открой → разреши камеру → наведи на участника *или* на экран телефона с Гранатумом.\n"
+        "📲 Накладка на телефоне\n\n"
+        "Открой → разреши камеру → наведи на участника или на экран с Гранатумом.\n"
         "Сверху — пульс и метрики; ● — запись в CSV.\n\n"
-        "Совет: Гранатум в Safari/Chrome, эта вкладка — рядом (split-screen) или камера на экран.\n"
-        "Полный набор метрик — /analyze. Захват вкладки ПК — только с ноутбука (browser_overlay.html).",
-        parse_mode="Markdown",
+        "Совет: Гранатум в Safari/Chrome, эта вкладка рядом (split-screen) или PiP 📌.\n"
+        "Полный набор метрик — /analyze.",
         reply_markup=kb,
     )
 
@@ -110,19 +115,15 @@ async def cmd_dashboard(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Панель АЦ: analyze, overlay, история сессий на устройстве."""
     if not cfg.COMBO_MINIAPP_URL:
         await update.message.reply_text(
-            "📊 *Дашборд паутинки HRV* — у @HRV_monitor_bot (/dashboard там).\n\n"
+            "📊 Дашборд паутинки HRV — у @HRV_monitor_bot (/dashboard там).\n\n"
             "У АЦ: /analyze, /overlay, видео в бот. Для панели задай COMBO_MINIAPP_URL.",
-            parse_mode="Markdown",
         )
         return
-    url = f"{cfg.COMBO_MINIAPP_URL}/ac_hub.html?cb={int(time.time())}"
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton(
-        "📊 Панель АЦ", web_app=WebAppInfo(url=url))]])
+    _, kb = _miniapp_kb("📊 Панель АЦ", "ac_hub.html")
     await update.message.reply_text(
-        "📊 *Панель АЦ*\n\n"
+        "📊 Панель АЦ\n\n"
         "Live-анализ, накладка с PiP для Гранатума, история CSV-сессий на этом телефоне.\n\n"
         "Паутинку HRV — у @HRV_monitor_bot (/dashboard там).",
-        parse_mode="Markdown",
         reply_markup=kb,
     )
 
@@ -132,14 +133,12 @@ async def cmd_live(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not cfg.COMBO_MINIAPP_URL:
         await update.message.reply_text("⚠️ Панель не настроена: задай COMBO_MINIAPP_URL (HTTPS) в .env.")
         return
-    url = f"{cfg.COMBO_MINIAPP_URL}/combo_live.html?cb={int(time.time())}"
-    kb = InlineKeyboardMarkup([[InlineKeyboardButton(
-        "📊 Открыть панель", web_app=WebAppInfo(url=url))]])
+    _, kb = _miniapp_kb("📊 Открыть панель", "combo_live.html")
     await update.message.reply_text(
         "📊 Живая панель участника (речь / эмоции / поза / пульс).\n"
         "Данные идут, когда на ноуте запущен ./start_ac_live.sh (захват экрана Гранатума).\n"
         "Открывается и на телефоне (тут), и на ноуте в браузере.",
-        reply_markup=kb
+        reply_markup=kb,
     )
 
 

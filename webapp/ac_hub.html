@@ -45,9 +45,15 @@
 <script>
 const TG=window.Telegram?.WebApp; if(TG){try{TG.expand();TG.ready();}catch(e){}}
 const base=location.origin+location.pathname.replace(/[^/]+$/, '');
-document.getElementById('goAnalyze').href=base+'phone_analyze.html';
-document.getElementById('goOverlay').href=base+'mobile_overlay.html';
-document.getElementById('goTab').href=base+'browser_overlay.html';
+function go(page){
+  location.assign(base+page+'?cb='+Date.now());
+}
+['goAnalyze','goOverlay','goTab'].forEach((id, i)=>{
+  const page=['phone_analyze.html','mobile_overlay.html','browser_overlay.html'][i];
+  const el=document.getElementById(id);
+  el.href=base+page;
+  el.addEventListener('click', e=>{ e.preventDefault(); go(page); });
+});
 function renderSessions(){
   let all=[];
   try{
