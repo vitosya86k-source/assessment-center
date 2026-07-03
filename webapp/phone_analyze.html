@@ -92,7 +92,7 @@ let micStream=null, analyser=null, audioBuf=null;
 // ---------- метрики-состояния ----------
 const rgbBuf=[]; let lastPulse=0, hrVal=null, snrVal=0;
 const speechWin=[]; let lastSpeechCalc=0;
-let prevNose=null, fidgetEma=0;
+let prevNose=null, fidgetEma=0, lastHeadTilt=0;
 let faceTs=0, poseTs=0, frameN=0;
 let recording=false, csvSeries=[], stressHist=[], lastValence=0, lastArousal=0, lastPausePct=0, lastTempo=0;
 const mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
@@ -232,6 +232,7 @@ function updatePose(lm){
   const sw=Math.hypot(rs.x-ls.x,rs.y-ls.y)||1;
   const hand=Math.min(Math.hypot(lw.x-nose.x,lw.y-nose.y),Math.hypot(rw.x-nose.x,rw.y-nose.y))<0.55*sw;
   let tilt=Math.atan2(re.y-le.y,re.x-le.x)*180/Math.PI; if(tilt>90)tilt-=180; else if(tilt<-90)tilt+=180;
+  lastHeadTilt=tilt;
   if(prevNose){ const d=Math.hypot(nose.x-prevNose.x,nose.y-prevNose.y)/sw; fidgetEma=0.9*fidgetEma+0.1*d; } prevNose=nose;
   renderRows('pose',[
     ['Рука у лица', hand?'да':'нет', hand?'watch':'ok'],
@@ -270,16 +271,16 @@ function computeSpeech(){
     ['Питч', Math.round(pitch)+' гц', ''],
   ],0);
   lastPausePct=pausePct; lastTempo=tempo;
-  const n=computeNeiry({hr:hrVal,arousal:lastArousal,valence:lastValence,tempo,pausePct,
-    pitchStd:pstd,fidget:fidgetEma,headTilt:tilt,faceOk:true});
-  if(n.stress!=null){stressHist.push(n.stress);if(stressHist.length>30)stressHist.shift();}
+  const neiry=computeNeiry({hr:hrVal,arousal:lastArousal,valence:lastValence,tempo,pausePct,
+    pitchStd:pstd,fidget:fidgetEma,headTilt:lastHeadTilt,faceOk:true});
+  if(neiry.stress!=null){stressHist.push(neiry.stress);if(stressHist.length>30)stressHist.shift();}
   const res=computeResilience(stressHist);
   renderRows('neiry',[
-    ['Стресс', n.stress??'—', (n.stress??0)>=65?'watch':'ok'],
-    ['Утомление', n.fatigue??'—', (n.fatigue??0)>=55?'watch':'ok'],
-    ['Вовлечённость', n.engagement??'—', ''],
+    ['Стресс', neiry.stress??'—', (neiry.stress??0)>=65?'watch':'ok'],
+    ['Утомление', neiry.fatigue??'—', (neiry.fatigue??0)>=55?'watch':'ok'],
+    ['Вовлечённость', neiry.engagement??'—', ''],
     ['Стрессоустойчивость', res??'—', ''],
-  ], (n.stress??0)>=65?2:0);
+  ], (neiry.stress??0)>=65?2:0);
 }
 function pctl(a,p){const s=[...a].sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.floor(p/100*s.length))];}
 

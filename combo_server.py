@@ -10,7 +10,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from ac_engine import analyze_ac_clip
 from bot.webhook import router as telegram_router, setup_webhook, shutdown_ptb
@@ -112,6 +112,9 @@ async def ac_analyze(
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 
+_WEBAPP_NO_CACHE = {"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
+
+
 def _webapp_route(page: str):
     path = _WEBAPP / page
     if not path.exists():
@@ -119,7 +122,7 @@ def _webapp_route(page: str):
 
     @app.get(f"/{page}")
     async def _serve(_p=path):
-        return FileResponse(str(_p), media_type="text/html")
+        return FileResponse(str(_p), media_type="text/html", headers=_WEBAPP_NO_CACHE)
 
 
 for _page in _WEBAPP_PAGES:
@@ -133,7 +136,7 @@ def _webapp_asset(page: str, media: str):
 
     @app.get(f"/{page}")
     async def _serve(_p=path, _m=media):
-        return FileResponse(str(_p), media_type=_m)
+        return FileResponse(str(_p), media_type=_m, headers=_WEBAPP_NO_CACHE)
 
 
 for _asset in _WEBAPP_ASSETS:

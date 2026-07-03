@@ -7,7 +7,7 @@ import os
 from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response
-from telegram import Update
+from telegram import Update, MenuButtonWebApp, WebAppInfo
 
 import combo_bot
 
@@ -68,12 +68,21 @@ async def setup_webhook() -> None:
         return
     app = await _ensure_ptb_running()
     secret = webhook_secret()
+    base = _api_base().rstrip("/")
     await app.bot.set_webhook(
         url=url,
         secret_token=secret or None,
         allowed_updates=Update.ALL_TYPES,
         drop_pending_updates=False,
     )
+    hub = f"{base}/ac_hub.html"
+    try:
+        await app.bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(text="АЦ", web_app=WebAppInfo(url=hub)),
+        )
+        logger.info("Menu button → %s", hub)
+    except Exception as e:
+        logger.warning("Menu button не установлен (нужен /setdomain в @BotFather): %s", e)
     logger.info("Telegram webhook зарегистрирован: %s", url)
 
 

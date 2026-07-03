@@ -60,11 +60,11 @@ HELP = (
 
 
 def _miniapp_kb(label: str, page: str) -> tuple[str, InlineKeyboardMarkup]:
-    """URL мини-апки + клавиатура: Web App и запасная ссылка в браузер."""
+    """Ссылка на мини-апп: сначала браузер (надёжно), потом Web App в Telegram."""
     url = f"{cfg.COMBO_MINIAPP_URL}/{page}?cb={int(time.time())}"
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton(label, web_app=WebAppInfo(url=url))],
-        [InlineKeyboardButton("🌐 Открыть в браузере", url=url)],
+        [InlineKeyboardButton(f"🌐 {label}", url=url)],
+        [InlineKeyboardButton("📲 В Telegram (мини-апп)", web_app=WebAppInfo(url=url))],
     ])
     return url, kb
 
@@ -88,9 +88,9 @@ async def cmd_analyze(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     url, kb = _miniapp_kb("📷 Открыть анализ", "phone_analyze.html")
     await update.message.reply_text(
         "📷 Live-анализ по видео — Камера / Файл / Ссылка\n\n"
-        "Открой → выбери источник → тапни по человеку (кого смотреть) → метрики вживую.\n"
-        "Камеру внутри Telegram нужно разрешить. Работает и на телефоне, и на ноуте "
-        "(в браузере по той же ссылке).",
+        "Нажми верхнюю кнопку (браузер) — надёжнее для камеры.\n"
+        "Открой → тапни по человеку → метрики вживую.\n"
+        "⚠️ Старые кнопки в чате не обновляются — всегда шли команду заново.",
         reply_markup=kb,
     )
 
@@ -103,10 +103,9 @@ async def cmd_overlay(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     _, kb = _miniapp_kb("📲 Накладка (камера)", "mobile_overlay.html")
     await update.message.reply_text(
         "📲 Накладка на телефоне\n\n"
-        "Открой → разреши камеру → наведи на участника или на экран с Гранатумом.\n"
-        "Сверху — пульс и метрики; ● — запись в CSV.\n\n"
-        "Совет: Гранатум в Safari/Chrome, эта вкладка рядом (split-screen) или PiP 📌.\n"
-        "Полный набор метрик — /analyze.",
+        "Верхняя кнопка — открыть в Safari/Chrome (лучше для PiP и камеры).\n"
+        "● запись → 📌 PiP → 🌐 Гранатум.\n"
+        "⚠️ Старые кнопки в чате не обновляются — шли /overlay заново.",
         reply_markup=kb,
     )
 
