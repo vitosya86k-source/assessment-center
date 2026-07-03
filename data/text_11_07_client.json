@@ -1,0 +1,117 @@
+{
+  "n_turns": 39,
+  "n_words": 2651,
+  "coping": {
+    "problem_focused_per_1000w": 5.7,
+    "emotion_focused_per_1000w": 63.0,
+    "avoidant_per_1000w": 32.4,
+    "dominant": "emotion",
+    "balance": {
+      "problem_pct": 6.0,
+      "emotion_pct": 62.0,
+      "avoidant_pct": 32.0
+    },
+    "raw_counts": {
+      "causal": 9,
+      "planning": 6,
+      "emotion": 8,
+      "self_ref": 151,
+      "hedge": 11,
+      "general": 66,
+      "passive": 0,
+      "topic_shift": 9,
+      "n_words": 2651
+    }
+  },
+  "anxiety_composite": {
+    "reduced_duration_z": -4.9,
+    "fragmentation_z": 0.5,
+    "negative_emotion_z": 1.1,
+    "syntactic_simplification_z": -0.1,
+    "anxiety_score": -3.41
+  },
+  "mask_drop_windows": [
+    {
+      "win_start_sec": 1.0,
+      "win_end_sec": 301.0,
+      "avg_latency_sec": 3.96,
+      "hedge_per_1000w": 2.7,
+      "TTR": 0.547,
+      "avg_sent_len_words": 11.6,
+      "n_turns": 10,
+      "n_words": 375
+    },
+    {
+      "win_start_sec": 301.0,
+      "win_end_sec": 601.0,
+      "avg_latency_sec": 5.37,
+      "hedge_per_1000w": 6.1,
+      "TTR": 0.584,
+      "avg_sent_len_words": 8.5,
+      "n_turns": 6,
+      "n_words": 329
+    },
+    {
+      "win_start_sec": 601.0,
+      "win_end_sec": 901.0,
+      "avg_latency_sec": 12.03,
+      "hedge_per_1000w": 2.3,
+      "TTR": 0.646,
+      "avg_sent_len_words": 11.1,
+      "n_turns": 4,
+      "n_words": 427
+    },
+    {
+      "win_start_sec": 901.0,
+      "win_end_sec": 1201.0,
+      "avg_latency_sec": 4.93,
+      "hedge_per_1000w": 7.4,
+      "TTR": 0.663,
+      "avg_sent_len_words": 7.6,
+      "n_turns": 4,
+      "n_words": 270
+    },
+    {
+      "win_start_sec": 1201.0,
+      "win_end_sec": 1501.0,
+      "avg_latency_sec": 5.81,
+      "hedge_per_1000w": 3.7,
+      "TTR": 0.503,
+      "avg_sent_len_words": 7.8,
+      "n_turns": 2,
+      "n_words": 543
+    },
+    {
+      "win_start_sec": 1501.0,
+      "win_end_sec": 1801.0,
+      "avg_latency_sec": 3.97,
+      "hedge_per_1000w": 5.9,
+      "TTR": 0.583,
+      "avg_sent_len_words": 12.6,
+      "n_turns": 5,
+      "n_words": 338
+    },
+    {
+      "win_start_sec": 1801.0,
+      "win_end_sec": 2101.0,
+      "avg_latency_sec": 3.72,
+      "hedge_per_1000w": 2.8,
+      "TTR": 0.63,
+      "avg_sent_len_words": 8.2,
+      "n_turns": 7,
+      "n_words": 357
+    }
+  ],
+  "emotions_rubert": {
+    "enthusiasm": 0.592,
+    "joy": 0.519,
+    "anger": 0.284,
+    "surprise": 0.276,
+    "neutral": 0.194,
+    "sadness": 0.158,
+    "disgust": 0.077,
+    "shame": 0.058,
+    "fear": 0.034,
+    "guilt": 0.03
+  }
+}

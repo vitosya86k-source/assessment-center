@@ -1,0 +1,77 @@
+{
+  "n_turns": 22,
+  "n_words": 678,
+  "coping": {
+    "problem_focused_per_1000w": 2.9,
+    "emotion_focused_per_1000w": 53.1,
+    "avoidant_per_1000w": 25.1,
+    "dominant": "emotion",
+    "balance": {
+      "problem_pct": 4.0,
+      "emotion_pct": 65.0,
+      "avoidant_pct": 31.0
+    },
+    "raw_counts": {
+      "causal": 1,
+      "planning": 1,
+      "emotion": 0,
+      "self_ref": 36,
+      "hedge": 5,
+      "general": 11,
+      "passive": 1,
+      "topic_shift": 0,
+      "n_words": 678
+    }
+  },
+  "anxiety_composite": {
+    "reduced_duration_z": -1.05,
+    "fragmentation_z": 0.65,
+    "negative_emotion_z": 0.79,
+    "syntactic_simplification_z": 0.14,
+    "anxiety_score": 0.53
+  },
+  "mask_drop_windows": [
+    {
+      "win_start_sec": 1.0,
+      "win_end_sec": 301.0,
+      "avg_latency_sec": 8.38,
+      "hedge_per_1000w": 4.3,
+      "TTR": 0.668,
+      "avg_sent_len_words": 9.6,
+      "n_turns": 7,
+      "n_words": 232
+    },
+    {
+      "win_start_sec": 301.0,
+      "win_end_sec": 601.0,
+      "avg_latency_sec": 6.27,
+      "hedge_per_1000w": 7.5,
+      "TTR": 0.65,
+      "avg_sent_len_words": 10.2,
+      "n_turns": 6,
+      "n_words": 266
+    },
+    {
+      "win_start_sec": 601.0,
+      "win_end_sec": 901.0,
+      "avg_latency_sec": 2.94,
+      "hedge_per_1000w": 11.1,
+      "TTR": 0.689,
+      "avg_sent_len_words": 6.2,
+      "n_turns": 9,
+      "n_words": 180
+    }
+  ],
+  "emotions_rubert": {
+    "enthusiasm": 0.794,
+    "joy": 0.451,
+    "neutral": 0.185,
+    "sadness": 0.175,
+    "surprise": 0.175,
+    "anger": 0.142,
+    "guilt": 0.037,
+    "shame": 0.029,
+    "fear": 0.027,
+    "disgust": 0.026
+  }
+}

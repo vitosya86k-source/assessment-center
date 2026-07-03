@@ -1,0 +1,33 @@
+{
+  "calibrated_at": "2026-05-29T12:04:33",
+  "sdnn_method": "polynomial",
+  "sdnn_params": {
+    "order": 7,
+    "resample_hz": 8.0
+  },
+  "kubios_reference": {
+    "sdnn": 40.26,
+    "rmssd": 44.0,
+    "mean_rr": 963.62,
+    "sd1": 30.94,
+    "sd2": 47.93,
+    "lf_hf": 1.33
+  },
+  "achieved": {
+    "sdnn": 40.5882230625029,
+    "rmssd": 43.55611444326721,
+    "mean_rr": 963.2486187845304
+  },
+  "diff_pct": {
+    "sdnn": 0.815258476162196,
+    "rmssd": -1.0088308107563357,
+    "mean_rr": -0.038540214552372186
+  },
+  "window": {
+    "csv": "/home/user/Dropbox/С винды целиком/с винды/HRV_Monitor_bot/NEW VERSION/data/sessions/20260529/segment_111304.csv",
+    "start": "11:23:00",
+    "end": "11:25:56",
+    "n_rr_raw": 182,
+    "n_rr_clean": 182
+  }
+}

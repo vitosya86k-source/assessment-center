@@ -1,0 +1,87 @@
+{
+  "n_turns": 21,
+  "n_words": 1945,
+  "coping": {
+    "problem_focused_per_1000w": 18.5,
+    "emotion_focused_per_1000w": 61.2,
+    "avoidant_per_1000w": 19.0,
+    "dominant": "emotion",
+    "balance": {
+      "problem_pct": 19.0,
+      "emotion_pct": 62.0,
+      "avoidant_pct": 19.0
+    },
+    "raw_counts": {
+      "causal": 10,
+      "planning": 26,
+      "emotion": 7,
+      "self_ref": 105,
+      "hedge": 13,
+      "general": 22,
+      "passive": 0,
+      "topic_shift": 2,
+      "n_words": 1945
+    }
+  },
+  "anxiety_composite": {
+    "reduced_duration_z": -7.25,
+    "fragmentation_z": -0.12,
+    "negative_emotion_z": 1.25,
+    "syntactic_simplification_z": -0.46,
+    "anxiety_score": -6.59
+  },
+  "mask_drop_windows": [
+    {
+      "win_start_sec": 0.0,
+      "win_end_sec": 300.0,
+      "avg_latency_sec": 5.27,
+      "hedge_per_1000w": 8.0,
+      "TTR": 0.563,
+      "avg_sent_len_words": 10.7,
+      "n_turns": 3,
+      "n_words": 497
+    },
+    {
+      "win_start_sec": 300.0,
+      "win_end_sec": 600.0,
+      "avg_latency_sec": 4.88,
+      "hedge_per_1000w": 5.1,
+      "TTR": 0.57,
+      "avg_sent_len_words": 10.2,
+      "n_turns": 4,
+      "n_words": 395
+    },
+    {
+      "win_start_sec": 600.0,
+      "win_end_sec": 900.0,
+      "avg_latency_sec": 3.43,
+      "hedge_per_1000w": 5.9,
+      "TTR": 0.516,
+      "avg_sent_len_words": 13.0,
+      "n_turns": 7,
+      "n_words": 512
+    },
+    {
+      "win_start_sec": 1200.0,
+      "win_end_sec": 1500.0,
+      "avg_latency_sec": 4.32,
+      "hedge_per_1000w": 4.0,
+      "TTR": 0.64,
+      "avg_sent_len_words": 8.9,
+      "n_turns": 5,
+      "n_words": 250
+    }
+  ],
+  "emotions_rubert": {
+    "joy": 0.539,
+    "enthusiasm": 0.505,
+    "neutral": 0.277,
+    "surprise": 0.25,
+    "anger": 0.239,
+    "sadness": 0.225,
+    "guilt": 0.076,
+    "fear": 0.068,
+    "shame": 0.061,
+    "disgust": 0.059
+  }
+}

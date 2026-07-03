@@ -1,0 +1,25 @@
+{
+  "sbp0": 109.2,
+  "dbp0": 67.25,
+  "hr0": 68.0,
+  "rmssd0": 40.0,
+  "coef": {
+    "sbp_hr": 0.6,
+    "sbp_rmssd": -0.25,
+    "sbp_resp": 0.8,
+    "dbp_hr": 0.4,
+    "dbp_rmssd": -0.15,
+    "dbp_resp": 0.5
+  },
+  "trained": false,
+  "calibrated_points": [
+    {
+      "cuff_sbp": 104.0,
+      "cuff_dbp": 64.0,
+      "hr": 68.0,
+      "rmssd": 267.9,
+      "resp": 7.5,
+      "rmssd_used": false
+    }
+  ]
+}

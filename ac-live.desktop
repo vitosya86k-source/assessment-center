@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=АЦ live-инструмент
+Comment=Боевой live-анализ участника: пульс, эмоции, поза, речь, состояние (Neiry)
+Exec=/home/user/.local/bin/ac-live
+Terminal=true
+Icon=utilities-system-monitor
+Categories=Utility;

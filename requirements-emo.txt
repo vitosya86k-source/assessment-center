@@ -1,0 +1,7 @@
+# emo_venv — отдельное окружение для эмоций (HSEmotion ONNX)
+# Сборка: python3.12 -m venv emo_venv && emo_venv/bin/pip install -r requirements-emo.txt
+hsemotion-onnx
+onnxruntime
+opencv-python
+numpy
+mss

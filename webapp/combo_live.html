@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>Live-анализ участника</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{
+    --bg:#0a0e1a; --panel:#121829; --card:#161d30; --card2:#19223a;
+    --line:#222a40; --txt:#eef2fb; --muted:#8b94ad;
+    --ok:#00d4aa; --good:#a8e063; --watch:#ff8c42; --signal:#ffd93d; --crit:#ff4757;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,'Segoe UI',Roboto,Inter,sans-serif;
+       background:var(--bg);color:var(--txt);min-height:100vh}
+  .wrap{display:flex;min-height:100vh}
+  /* видео слева (на десктопе) */
+  .video{flex:1;position:relative;background:#05070d;display:flex;align-items:center;justify-content:center;min-height:200px}
+  .video img,.video video{width:100%;height:auto;max-height:46vh;object-fit:contain;display:block}
+  .video .ph{color:#2e3650;font-size:14px;text-align:center;padding:12px}
+  .video #frame{display:none}
+  .info{cursor:pointer;color:var(--muted);font-size:12px;margin-left:5px;user-select:none}
+  .desc{grid-column:1 / -1;display:none;font-size:11.5px;color:var(--muted);line-height:1.45;
+        background:rgba(255,255,255,.04);border-radius:8px;padding:7px 10px;margin-top:3px}
+  .desc.open{display:block}
+  .audioonly{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    text-align:center;color:var(--muted);display:none}
+  .audioonly .ic{font-size:48px}
+  /* панель */
+  .panel{width:560px;background:var(--panel);border-left:1px solid var(--line);
+         padding:16px 16px 60px}
+  .hdr{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;
+       position:sticky;top:0;background:var(--panel);padding:6px 0;z-index:5}
+  .hdr h1{font-size:17px;font-weight:600;margin:0}
+  .live{display:flex;align-items:center;gap:7px;color:var(--muted);font-variant-numeric:tabular-nums;font-size:13px}
+  .live .dot{width:9px;height:9px;border-radius:50%;background:var(--crit);box-shadow:0 0 8px var(--crit);animation:pulse 1.4s infinite}
+  @keyframes pulse{50%{opacity:.35}}
+  .tools{display:flex;gap:8px;margin:6px 0 2px}
+  .tools button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--txt);
+       border-radius:10px;padding:9px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .tools button:active{background:var(--card2)}
+  /* алерты */
+  .group{margin-top:14px}
+  .group .gt{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);
+             text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px 2px}
+  .alerts .gt{color:var(--crit)}
+  .alert{background:var(--card);border-radius:12px;padding:11px 13px;margin-bottom:8px;
+         border-left:4px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .alert .l .t{font-size:14.5px;font-weight:600}
+  .alert .l .v{margin-top:3px;font-size:12.5px;color:var(--muted)}
+  .alert .l .v b{color:var(--txt);font-weight:700;margin-right:8px}
+  /* аккордеон-канал */
+  details.ch{background:var(--card);border-radius:14px;margin-bottom:10px;overflow:hidden;
+             border-left:4px solid var(--line)}
+  details.ch[data-sev="3"]{border-left-color:var(--crit)}
+  details.ch[data-sev="2"]{border-left-color:var(--watch)}
+  details.ch[data-sev="1"]{border-left-color:var(--signal)}
+  details.ch[data-sev="0"]{border-left-color:var(--ok)}
+  summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;
+          padding:13px 14px;font-size:15px;font-weight:600;user-select:none}
+  summary::-webkit-details-marker{display:none}
+  summary .cnt{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-weight:600}
+  summary .chev{transition:.2s transform;color:var(--muted)}
+  details[open] summary .chev{transform:rotate(90deg)}
+  summary .pill{font-size:11px;font-weight:700;padding:3px 8px;border-radius:7px}
+  .body{padding:0 14px 8px}
+  .row{display:grid;grid-template-columns:minmax(0,1fr) 50px 70px;align-items:center;gap:8px;
+       padding:4px 6px 4px 8px;border-bottom:1px solid var(--line);border-left:3px solid transparent;border-radius:4px}
+  .row:last-child{border-bottom:none}
+  .row.r-crit{border-left-color:var(--crit);background:rgba(255,71,87,.07)}
+  .row.r-watch{border-left-color:var(--watch);background:rgba(255,140,66,.06)}
+  .row.r-signal{border-left-color:var(--signal)}
+  .row .nm{font-size:11.5px;color:#cfd6e8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .val{font-weight:700;font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+  .row.r-crit .val{color:var(--crit)} .row.r-watch .val{color:var(--watch)} .row.r-signal .val{color:var(--signal)}
+  .mcell{min-width:0}
+  .meter{position:relative;height:11px}
+  .track{position:absolute;top:4px;left:0;right:0;height:4px;border-radius:3px;overflow:hidden;display:flex}
+  .track span{height:100%}
+  .mark{position:absolute;top:0;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;
+        border-top:6px solid var(--txt);transform:translateX(-4px)}
+  .ax{display:none}
+  .badge{font-size:10.5px;font-weight:700;padding:4px 8px;border-radius:7px;text-align:center}
+  .b-ok{background:rgba(0,212,170,.14);color:var(--ok)}
+  .b-watch{background:rgba(255,140,66,.16);color:var(--watch)}
+  .b-signal{background:rgba(255,217,61,.16);color:var(--signal)}
+  .b-crit{background:rgba(255,71,87,.16);color:var(--crit)}
+  .alert.b-ok-bar{border-left-color:var(--ok)} .alert.b-watch-bar{border-left-color:var(--watch)}
+  .alert.b-signal-bar{border-left-color:var(--signal)} .alert.b-crit-bar{border-left-color:var(--crit)}
+  /* мобильно: панель на весь экран, видео — узкой полосой сверху */
+  @media(max-width:760px){
+    .wrap{flex-direction:column}
+    .video{flex:none;position:sticky;top:0;z-index:10;min-height:0;background:#05070d;border-bottom:1px solid var(--line)}
+    .video img,.video video{max-height:30vh}
+    .panel{width:100%;border-left:none}
+    .hdr{position:static}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="video" id="video">
+    <img id="frame" alt="">
+    <div class="ph" id="vph">видео-плитка участника<br><small>(подключается, когда идёт захват)</small></div>
+    <div class="audioonly" id="audioonly"><div class="ic">🎧</div>audio-only<br><small>лицо скрыто — активны речевые каналы</small></div>
+  </div>
+  <div class="panel">
+    <div class="hdr">
+      <h1>Live-анализ участника</h1>
+      <div class="live"><span class="dot"></span><span id="rec">LIVE</span><span id="clock">00:00:00</span></div>
+    </div>
+    <div class="tools">
+      <button id="expand">⊕ Развернуть всё</button>
+      <button id="collapse">⊖ Свернуть всё</button>
+      <button id="export">⤓ Выгрузить CSV</button>
+    </div>
+    <div id="content"></div>
+  </div>
+</div>
+
+<script>
+const TG = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+if(TG){ try{ TG.expand(); TG.ready(); }catch(e){} }
+window._descOpen = new Set();   // какие описания метрик раскрыты (переживает автообновление)
+
+const C = {ok:'#00d4aa',good:'#a8e063',watch:'#ff8c42',signal:'#ffd93d',crit:'#ff4757'};
+const BADGE = {NORMA:'b-ok', NABL:'b-watch', SIGNAL:'b-signal', CRIT:'b-crit'};
+const BADGE_TXT = {NORMA:'НОРМА', NABL:'НАБЛЮДАТЬ', SIGNAL:'СИГНАЛ', CRIT:'КРИТИЧНО'};
+const SEV = {NORMA:0, SIGNAL:1, NABL:2, CRIT:3};
+const SEV_CLS = {3:'r-crit',2:'r-watch',1:'r-signal',0:''};
+
+const DEMO = { audio_only:false, elapsed:"00:18:47",
+  alerts:[
+    {t:"Темп речи — ускорен", v:"162 сл/мин", sub:"Темп выше нормы (120–150)", st:"CRIT"},
+    {t:"Рука у лица — сигнал", v:"18 % времени", sub:"Частое касание лица", st:"SIGNAL"},
+  ],
+  channels:[
+    {title:"Речь", icon:"💬", rows:[
+      {nm:"Темп", val:"162 сл/мин", min:60,max:220,value:162, zones:[[120,C.ok],[150,C.signal],[220,C.crit]], st:"CRIT"},
+      {nm:"Паузы", val:"12 %", min:0,max:40,value:12, zones:[[10,C.ok],[20,C.signal],[40,C.watch]], st:"NABL"},
+      {nm:"Доля речи", val:"61 %", min:0,max:100,value:61, zones:[[30,C.signal],[80,C.ok],[100,C.signal]], st:"NORMA"},
+    ]},
+    {title:"Эмоции", icon:"🙂", rows:[
+      {nm:"Валентность", val:"+0.42", min:-1,max:1,value:0.42, zones:[[-.2,C.watch],[1,C.ok]], lo:"Негатив", hi:"Позитив", st:"NORMA"},
+      {nm:"Возбуждение", val:"0.68", min:0,max:1,value:0.68, zones:[[.5,C.ok],[.75,C.signal],[1,C.watch]], st:"NABL"},
+    ]},
+    {title:"Поза", icon:"🧍", rows:[
+      {nm:"Рука у лица", val:"18 %", min:0,max:60,value:18, zones:[[10,C.ok],[25,C.signal],[60,C.watch]], st:"SIGNAL"},
+    ]},
+    {title:"Пульс по видео", icon:"❤️", rows:[
+      {nm:"ЧСС", val:"72 уд/мин", min:40,max:160,value:72, zones:[[60,C.signal],[100,C.ok],[160,C.crit]], st:"NORMA"},
+    ]},
+  ]
+};
+
+function meter(r){
+  const pct = Math.max(0,Math.min(1,(r.value-r.min)/(r.max-r.min)))*100;
+  let segs="",prev=r.min;
+  for(const [upto,col] of r.zones){
+    const w=((upto-prev)/(r.max-r.min))*100; prev=upto;
+    segs+=`<span style="width:${w}%;background:${col}"></span>`;
+  }
+  const ax = (r.lo||r.hi)?`<div class="ax"><span>${r.lo||''}</span><span>${r.hi||''}</span></div>`:'';
+  return `<div class="mcell"><div class="meter"><div class="track">${segs}</div><div class="mark" style="left:${pct}%"></div></div>${ax}</div>`;
+}
+function chSeverity(ch){ return Math.max(0, ...ch.rows.map(r=>SEV[r.st]||0)); }
+
+// история для выгрузки: копим снимки, что видела панель
+const HIST=[]; const HKEYS=new Set();
+function accumulate(d){
+  const flat={ts:new Date().toISOString(), elapsed:d.elapsed||''};
+  for(const ch of (d.channels||[])) for(const r of ch.rows)
+    flat[`${ch.title}: ${r.nm}`]=r.val;
+  const key=flat.elapsed+'|'+JSON.stringify(flat);
+  if(!HKEYS.has(key)){ HKEYS.add(key); HIST.push(flat); }
+}
+
+function render(d){
+  accumulate(d);
+  document.getElementById('clock').textContent = d.elapsed||"00:00:00";
+  document.getElementById('audioonly').style.display = d.audio_only?'block':'none';
+  let h="";
+  if(d.alerts&&d.alerts.length){
+    const al=[...d.alerts].sort((a,b)=>(SEV[b.st]||0)-(SEV[a.st]||0));
+    h+=`<div class="group alerts"><div class="gt">⚠ Требует внимания · по приоритету</div>`;
+    for(const a of al){
+      h+=`<div class="alert ${BADGE[a.st]}-bar"><div class="l"><div class="t">${a.t}</div>
+          <div class="v"><b>${a.v}</b>${a.sub||''}</div></div>
+          <div class="badge ${BADGE[a.st]}">${BADGE_TXT[a.st]}</div></div>`;
+    }
+    h+=`</div>`;
+  }
+  // каналы: сортируем по критичности (критичное всплывает вверх), критичные раскрыты
+  const chs=(d.channels||[]).map(ch=>({ch,sev:chSeverity(ch)})).sort((a,b)=>b.sev-a.sev);
+  const openState = window._chOpen || {};
+  for(const {ch,sev} of chs){
+    const nonNorm = ch.rows.filter(r=>(SEV[r.st]||0)>=2).length;
+    const isOpen = (ch.title in openState) ? openState[ch.title] : (sev>=2);
+    const pill = sev>=3?`<span class="pill b-crit">критично</span>`
+               : sev>=2?`<span class="pill b-watch">наблюдать</span>`
+               : sev>=1?`<span class="pill b-signal">сигнал</span>`:'';
+    h+=`<details class="ch" data-sev="${sev}" data-title="${ch.title}" ${isOpen?'open':''}>
+          <summary><span>${ch.icon} ${ch.title}</span>
+            <span class="cnt">${pill}${nonNorm?`<span>${nonNorm} ⚑</span>`:''}<span class="chev">▶</span></span>
+          </summary><div class="body">`;
+    for(const r of ch.rows){
+      const key=`${ch.title}|${r.nm}`;
+      const info = r.desc?`<span class="info" data-key="${key}" title="что это">ⓘ</span>`:'';
+      const desc = r.desc?`<div class="desc ${window._descOpen.has(key)?'open':''}">${r.desc}</div>`:'';
+      h+=`<div class="row ${SEV_CLS[SEV[r.st]||0]}"><div class="nm">${r.nm}${info}</div>`+
+         `${meter(r)}<div class="val">${r.val}</div>${desc}</div>`;
+    }
+    h+=`</div></details>`;
+  }
+  document.getElementById('content').innerHTML=h;
+  // запоминаем ручные сворачивания, чтобы автообновление их не сбрасывало
+  document.querySelectorAll('details.ch').forEach(el=>{
+    el.addEventListener('toggle',()=>{ (window._chOpen=window._chOpen||{})[el.dataset.title]=el.open; });
+  });
+  document.querySelectorAll('.info').forEach(el=>{
+    el.onclick=(e)=>{ e.preventDefault(); const k=el.dataset.key;
+      if(window._descOpen.has(k)) window._descOpen.delete(k); else window._descOpen.add(k);
+      const d=el.closest('.row').querySelector('.desc'); if(d) d.classList.toggle('open'); };
+  });
+}
+
+document.getElementById('expand').onclick = ()=>{ document.querySelectorAll('details.ch').forEach(e=>{e.open=true;(window._chOpen=window._chOpen||{})[e.dataset.title]=true;}); };
+document.getElementById('collapse').onclick = ()=>{ document.querySelectorAll('details.ch').forEach(e=>{e.open=false;(window._chOpen=window._chOpen||{})[e.dataset.title]=false;}); };
+document.getElementById('export').onclick = ()=>{
+  if(!HIST.length){ alert('Данных пока нет'); return; }
+  const cols=[...HIST.reduce((s,r)=>{Object.keys(r).forEach(k=>s.add(k));return s;}, new Set())];
+  const esc=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+  const csv=[cols.join(',')].concat(HIST.map(r=>cols.map(c=>esc(r[c])).join(','))).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`live_session_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`;
+  a.click();
+};
+
+async function loadData(){
+  for(const url of ['combo_data.json','combo_data.sample.json']){
+    try{ const res=await fetch(url,{cache:'no-store'}); if(res.ok){ render(await res.json()); return; } }catch(e){}
+  }
+  render(DEMO);
+}
+loadData();
+setInterval(loadData, 2000);
+
+// живое видео участника: поток JPEG-кадров ~6-7 fps (двойная буферизация — без мигания)
+const frameImg=document.getElementById('frame'), vph=document.getElementById('vph');
+let _frameBusy=false;
+function refreshFrame(){
+  if(_frameBusy) return; _frameBusy=true;
+  const im=new Image();
+  im.onload=()=>{ frameImg.src=im.src; frameImg.style.display='block'; vph.style.display='none'; _frameBusy=false; };
+  im.onerror=()=>{ frameImg.style.display='none'; vph.style.display='block'; _frameBusy=false; };
+  im.src='frame.jpg?t='+Date.now();
+}
+setInterval(refreshFrame, 150);
+</script>
+</body>
+</html>

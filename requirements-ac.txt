@@ -1,0 +1,20 @@
+# Зависимости серверного endpoint телефонного АЦ (ac_api.py + ac_engine.py).
+# Тяжёлый стек — отдельный Railway-сервис, НЕ slim пульсовой (hrv-railway).
+# Модели рядом: face_landmarker.task, pose_landmarker_lite.task, ONNX эмоций (hsemotion).
+
+# web
+fastapi
+uvicorn[standard]
+python-multipart
+
+# движок combo + wellness
+opencv-python-headless
+mediapipe
+numpy
+scipy
+onnxruntime
+hsemotion-onnx
+opensmile          # опц.: eGeMAPS для голоса (voice_wellness), можно убрать
+pymorphy2          # контент-анализ речи (technical_analysis), нужен только с транскриптом
+python-docx        # чтение .docx транскрипта
+# ffmpeg — системный (apt), не pip: нужен ac_engine для аудиодорожки

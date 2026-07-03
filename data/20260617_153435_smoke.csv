@@ -1,0 +1,1 @@
+timestamp,hr_bpm,snr,rmssd_ms_trend,resp_per_min,face_idx,video_ok,voice_db,voice_voiced,voice_pitch_hz,voice_speech_ratio,voice_tempo_per_min,voice_pauses_per_min,voice_avg_pause_sec

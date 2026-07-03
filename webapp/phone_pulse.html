@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Пульс по камере</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{--bg:#0f1320;--card:#1a2032;--ink:#eaf0ff;--soft:#8b97b5;--accent:#4fd1c5;--warn:#ffb454;--bad:#ff6b6b}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"SF Pro Rounded","Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:520px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding:16px;gap:14px}
+  h1{font-size:20px;margin:4px 0 0;font-weight:760;letter-spacing:-.02em}
+  .sub{color:var(--soft);font-size:13px;line-height:1.4;margin:0}
+  .stage{position:relative;width:100%;aspect-ratio:1;border-radius:50%;overflow:hidden;
+    background:#000;box-shadow:0 10px 40px rgba(0,0,0,.4);margin:6px auto;max-width:340px}
+  video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  .guide{position:absolute;inset:0;pointer-events:none}
+  .guide .face{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:62%;height:80%;border:2px dashed rgba(255,255,255,.5);border-radius:50%/55% 55% 45% 45%}
+  .guide .roi{position:absolute;left:50%;top:26%;transform:translate(-50%,-50%);
+    width:34%;height:13%;border:2px solid var(--accent);border-radius:10px;opacity:.9}
+  .guide .roi:after{content:"лоб";position:absolute;left:50%;top:-18px;transform:translateX(-50%);
+    font-size:11px;color:var(--accent)}
+  .hrbox{text-align:center}
+  .hr{font-size:64px;font-weight:820;line-height:1;letter-spacing:-.04em}
+  .hr small{font-size:18px;color:var(--soft);font-weight:600}
+  .quality{font-size:13px;color:var(--soft);margin-top:4px}
+  .bar{height:8px;border-radius:99px;background:#252c41;overflow:hidden;margin-top:10px}
+  .bar > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#8be9d6);transition:.3s}
+  .card{background:var(--card);border-radius:18px;padding:14px 16px}
+  button{width:100%;border:0;border-radius:16px;padding:16px;font-size:17px;font-weight:700;
+    background:linear-gradient(180deg,#4fd1c5,#36b3a8);color:#06211e;cursor:pointer}
+  button.secondary{background:#252c41;color:var(--ink)}
+  button:disabled{opacity:.5}
+  .row{display:flex;gap:10px}
+  .hint{font-size:12.5px;color:var(--soft);line-height:1.45}
+  .ok{color:var(--accent)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>Пульс по камере</h1>
+    <p class="sub">Приложи лицо к кругу, чтобы <b>лоб</b> попал в зелёную рамку. Сиди неподвижно при ровном свете ~25 секунд.</p>
+  </div>
+
+  <div class="stage">
+    <video id="cam" playsinline muted autoplay></video>
+    <div class="guide"><div class="face"></div><div class="roi"></div></div>
+  </div>
+
+  <div class="hrbox">
+    <div class="hr"><span id="hr">—</span><small> уд/мин</small></div>
+    <div class="quality" id="quality">нажми «Старт»</div>
+    <div class="bar"><i id="prog"></i></div>
+  </div>
+
+  <div class="card hint" id="hint">
+    Совет: дневной/мягкий свет на лицо спереди, без контрового окна за спиной. Чем меньше движений — тем точнее.
+  </div>
+
+  <div class="row">
+    <button id="start">▶ Старт замера</button>
+    <button id="send" class="secondary hidden">Отправить результат</button>
+  </div>
+  <p class="sub" style="text-align:center" id="foot">Прототип rPPG · алгоритм POS (как на сервере). Это маркер пульса, не медприбор.</p>
+</div>
+
+<canvas id="cv" width="240" height="240" class="hidden"></canvas>
+
+<script>
+const TG = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+if (TG) { try { TG.expand(); TG.ready(); } catch(e){} }
+
+const video = document.getElementById('cam');
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d', {willReadFrequently:true});
+const hrEl = document.getElementById('hr'), qEl = document.getElementById('quality');
+const progEl = document.getElementById('prog'), startBtn = document.getElementById('start');
+const sendBtn = document.getElementById('send'), hintEl = document.getElementById('hint');
+
+const WIN_SEC = 25;        // длительность замера
+const MIN_SEC = 7;         // когда показать первую оценку
+let buf = [];              // {t, r, g, b}
+let running = false, t0 = 0, lastCalc = 0, lastHR = null, lastSNR = 0;
+
+async function initCam(){
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:'user', width:{ideal:640}, height:{ideal:640} }, audio:false });
+    video.srcObject = stream;
+    await video.play();
+    qEl.textContent = 'камера готова — нажми «Старт»';
+  }catch(e){
+    qEl.innerHTML = '<span class="bad">нет доступа к камере</span>';
+    hintEl.innerHTML = 'Разреши доступ к камере. На iOS открывай в Safari, на Android — в Chrome/Telegram. Нужен HTTPS.';
+  }
+}
+initCam();
+
+// средний RGB зоны лба (центр по X, ~26% сверху)
+function sampleForehead(){
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if(!vw) return null;
+  ctx.drawImage(video, 0, 0, cv.width, cv.height);
+  const W=cv.width, H=cv.height;
+  const rx=Math.floor(W*0.33), rw=Math.floor(W*0.34);
+  const ry=Math.floor(H*0.20), rh=Math.floor(H*0.13);
+  const d = ctx.getImageData(rx, ry, rw, rh).data;
+  let r=0,g=0,b=0,n=0;
+  for(let i=0;i<d.length;i+=4){ r+=d[i]; g+=d[i+1]; b+=d[i+2]; n++; }
+  return {r:r/n, g:g/n, b:b/n};
+}
+
+const mean = a => a.reduce((s,x)=>s+x,0)/a.length;
+const std  = a => { const m=mean(a); return Math.sqrt(mean(a.map(x=>(x-m)**2))); };
+
+// POS (Wang 2017): нормировка по среднему окна → проекция → объединение
+function posSignal(R,G,B){
+  const mR=mean(R), mG=mean(G), mB=mean(B);
+  const Rn=R.map(x=>x/mR-1), Gn=G.map(x=>x/mG-1), Bn=B.map(x=>x/mB-1);
+  const S1=Gn.map((g,i)=>g-Bn[i]);
+  const S2=Gn.map((g,i)=>g+Bn[i]-2*Rn[i]);
+  const a = std(S1)/(std(S2)||1e-9);
+  let h = S1.map((s,i)=>s+a*S2[i]);
+  const mh=mean(h); return h.map(x=>x-mh);
+}
+
+// периодограмма в полосе пульса [0.7..3.0] Гц → ЧСС + SNR
+function dominantHR(sig, fps){
+  const n=sig.length; let best={f:0,p:0}, tot=0, k=0;
+  for(let f=0.7; f<=3.0; f+=0.008){
+    let re=0,im=0;
+    for(let i=0;i<n;i++){ const a=2*Math.PI*f*i/fps; re+=sig[i]*Math.cos(a); im-=sig[i]*Math.sin(a); }
+    const p=(re*re+im*im)/n; tot+=p; k++;
+    if(p>best.p) best={f,p};
+  }
+  return { hr: best.f*60, snr: best.p/((tot/k)||1e-9) };
+}
+
+function compute(){
+  if(buf.length < 30) return;
+  const T = buf.map(s=>s.t);
+  const dur = (T[T.length-1]-T[0])/1000;
+  const fps = (buf.length-1)/Math.max(dur,1e-3);
+  if(fps < 8) return;
+  // используем хвост окна (последние ~10с) для отзывчивости
+  const cut = buf[buf.length-1].t - 10000;
+  const w = buf.filter(s=>s.t>=cut);
+  if(w.length < 60) return;
+  const sig = posSignal(w.map(s=>s.r), w.map(s=>s.g), w.map(s=>s.b));
+  const {hr, snr} = dominantHR(sig, (w.length-1)/((w[w.length-1].t-w[0].t)/1000));
+  lastHR = Math.round(hr); lastSNR = snr;
+  hrEl.textContent = lastHR;
+  let q='', cls='';
+  if(snr>=2.2){ q='сигнал хороший'; cls='ok'; }
+  else if(snr>=1.3){ q='сигнал средний — замри'; cls='warn'; }
+  else { q='слабый сигнал — свет/неподвижность'; cls='bad'; }
+  qEl.innerHTML = `ЧСС · <span class="${cls}">${q}</span> (SNR ${snr.toFixed(1)})`;
+}
+
+function loop(ts){
+  if(!running) return;
+  const s = sampleForehead();
+  if(s){ s.t = performance.now(); buf.push(s); if(buf.length>900) buf.shift(); }
+  const el = (performance.now()-t0)/1000;
+  progEl.style.width = Math.min(100, el/WIN_SEC*100)+'%';
+  if(performance.now()-lastCalc > 900 && el>=MIN_SEC){ lastCalc=performance.now(); compute(); }
+  if(el>=WIN_SEC){ finish(); return; }
+  requestAnimationFrame(loop);
+}
+
+function finish(){
+  running=false; startBtn.disabled=false; startBtn.textContent='▶ Повторить';
+  compute();
+  if(lastHR && lastSNR>=1.3){
+    qEl.innerHTML = `Готово · <b>${lastHR} уд/мин</b> · SNR ${lastSNR.toFixed(1)}`;
+    sendBtn.classList.remove('hidden');
+  } else {
+    qEl.innerHTML = '<span class="bad">не уверен в сигнале</span> — больше света, меньше движений, повтори';
+  }
+}
+
+startBtn.onclick = ()=>{
+  if(!video.videoWidth){ qEl.innerHTML='<span class="bad">камера не готова</span>'; return; }
+  buf=[]; lastHR=null; lastSNR=0; running=true; t0=performance.now(); lastCalc=0;
+  startBtn.disabled=true; startBtn.textContent='замер…'; sendBtn.classList.add('hidden');
+  hrEl.textContent='…'; qEl.textContent='считаю пульс…';
+  requestAnimationFrame(loop);
+};
+
+sendBtn.onclick = ()=>{
+  const payload = { kind:'phone_pulse', hr: lastHR, snr: +lastSNR.toFixed(2), ts: new Date().toISOString() };
+  if(TG && TG.sendData){ TG.sendData(JSON.stringify(payload)); TG.close && TG.close(); }
+  else { qEl.innerHTML = `Скопируй: <b>${lastHR} уд/мин</b> (вне Telegram отправка недоступна)`; }
+};
+</script>
+</body>
+</html>

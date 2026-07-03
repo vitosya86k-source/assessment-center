@@ -1,0 +1,18 @@
+# venv_new — основное окружение (пульсовой бот, оркестратор, поза/rPPG/речь, отчёты)
+# Сборка: python3.12 -m venv venv_new && venv_new/bin/pip install -r requirements-main.txt
+numpy
+scipy
+pandas
+opencv-python
+Pillow
+mss
+sounddevice
+neurokit2
+mediapipe
+python-telegram-bot>=22
+openpyxl
+python-docx
+pymorphy2
+bleak
+# опционально (семантика контент-анализа; без него — базовый режим):
+# sentence-transformers

@@ -1,0 +1,17 @@
+# Assessment Center на Railway: combo_bot webhook + мини-апп + ac_engine
+# Тяжёлый стек — отдельный сервис от slim polar-hrv (HRV_backend)
+
+fastapi
+uvicorn[standard]
+python-multipart
+python-telegram-bot==22.7
+
+opencv-python-headless
+mediapipe
+numpy
+scipy
+onnxruntime
+hsemotion-onnx
+opensmile
+pymorphy2
+python-docx
