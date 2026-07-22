@@ -37,6 +37,14 @@
   .hdr h1{font-size:17px;font-weight:600;margin:0}
   .live{display:flex;align-items:center;gap:7px;color:var(--muted);font-variant-numeric:tabular-nums;font-size:13px}
   .live .dot{width:9px;height:9px;border-radius:50%;background:var(--crit);box-shadow:0 0 8px var(--crit);animation:pulse 1.4s infinite}
+  .live.no-source .dot{background:var(--muted);box-shadow:none;animation:none}
+  .live.demo .dot{background:var(--signal);box-shadow:0 0 8px var(--signal);animation:none}
+  .empty-state{margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:22px 16px;text-align:center;color:var(--muted);line-height:1.55}
+  .empty-state b{display:block;color:var(--txt);font-size:15px;margin-bottom:5px}
+  .demo-banner{display:none;margin:8px 0 12px;padding:10px;border:2px solid var(--signal);
+    border-radius:10px;color:var(--signal);font-weight:800;text-align:center;letter-spacing:.12em}
+  body.demo-mode .demo-banner{display:block}
   @keyframes pulse{50%{opacity:.35}}
   .tools{display:flex;gap:8px;margin:6px 0 2px}
   .tools button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--txt);
@@ -117,6 +125,7 @@
       <button id="collapse">⊖ Свернуть всё</button>
       <button id="export">⤓ Выгрузить CSV</button>
     </div>
+    <div class="demo-banner">DEMO · НЕ LIVE-ДАННЫЕ</div>
     <div id="content"></div>
   </div>
 </div>
@@ -131,6 +140,30 @@ const BADGE = {NORMA:'b-ok', NABL:'b-watch', SIGNAL:'b-signal', CRIT:'b-crit'};
 const BADGE_TXT = {NORMA:'НОРМА', NABL:'НАБЛЮДАТЬ', SIGNAL:'СИГНАЛ', CRIT:'КРИТИЧНО'};
 const SEV = {NORMA:0, SIGNAL:1, NABL:2, CRIT:3};
 const SEV_CLS = {3:'r-crit',2:'r-watch',1:'r-signal',0:''};
+const DEMO_MODE = new URLSearchParams(location.search).get('demo') === '1';
+const liveBadge = document.querySelector('.live');
+
+function setSourceState(mode){
+  liveBadge.classList.remove('no-source','demo');
+  document.body.classList.toggle('demo-mode', mode === 'demo');
+  if(mode === 'live'){
+    document.getElementById('rec').textContent='LIVE';
+  }else if(mode === 'demo'){
+    liveBadge.classList.add('demo');
+    document.getElementById('rec').textContent='DEMO';
+  }else{
+    liveBadge.classList.add('no-source');
+    document.getElementById('rec').textContent='НЕТ ИСТОЧНИКА';
+    document.getElementById('clock').textContent='--:--:--';
+  }
+}
+
+function renderNoSource(){
+  setSourceState('none');
+  document.getElementById('content').innerHTML='<div class="empty-state"><b>Нет данных от live-источника</b>Запустите daemon/source и дождитесь первого реального пакета. Вымышленные метрики не показываются.</div>';
+  document.getElementById('frame').style.display='none';
+  document.getElementById('vph').style.display='block';
+}
 
 const DEMO = { audio_only:false, elapsed:"00:18:47",
   alerts:[
@@ -179,6 +212,7 @@ function accumulate(d){
 }
 
 function render(d){
+  setSourceState(DEMO_MODE ? 'demo' : 'live');
   accumulate(d);
   document.getElementById('clock').textContent = d.elapsed||"00:00:00";
   document.getElementById('audioonly').style.display = d.audio_only?'block':'none';
@@ -241,10 +275,15 @@ document.getElementById('export').onclick = ()=>{
 };
 
 async function loadData(){
-  for(const url of ['combo_data.json','combo_data.sample.json']){
-    try{ const res=await fetch(url,{cache:'no-store'}); if(res.ok){ render(await res.json()); return; } }catch(e){}
-  }
-  render(DEMO);
+  if(DEMO_MODE){ render(DEMO); return; }
+  try{
+    const res=await fetch('combo_data.json',{cache:'no-store'});
+    if(res.ok){
+      const data=await res.json();
+      if(data && Array.isArray(data.channels)){ render(data); return; }
+    }
+  }catch(e){}
+  renderNoSource();
 }
 loadData();
 setInterval(loadData, 2000);
