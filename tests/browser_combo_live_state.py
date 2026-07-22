@@ -29,6 +29,7 @@ with sync_playwright() as pw:
         out.mkdir(parents=True, exist_ok=True)
 
     no_source = browser.new_page(viewport={"width": 390, "height": 844})
+    no_source.route("**/telegram-web-app.js", lambda r: r.fulfill(content_type="application/javascript", body=""))
     no_source.route("**/combo_data.json", lambda r: r.fulfill(status=404, body=""))
     no_source.goto(args.base_url, wait_until="domcontentloaded")
     no_source.get_by_text("Нет данных от live-источника").wait_for()
@@ -38,6 +39,7 @@ with sync_playwright() as pw:
         no_source.screenshot(path=str(out / "no-source-390x844.png"), full_page=True)
 
     live = browser.new_page(viewport={"width": 390, "height": 844})
+    live.route("**/telegram-web-app.js", lambda r: r.fulfill(content_type="application/javascript", body=""))
     live.route("**/combo_data.json", lambda r: r.fulfill(json=live_payload))
     live.goto(args.base_url, wait_until="domcontentloaded")
     live.locator("#rec").wait_for()
@@ -46,6 +48,7 @@ with sync_playwright() as pw:
     assert live.locator("#rec").inner_text() == "LIVE"
 
     demo = browser.new_page(viewport={"width": 390, "height": 844})
+    demo.route("**/telegram-web-app.js", lambda r: r.fulfill(content_type="application/javascript", body=""))
     demo.route("**/combo_data.json", lambda r: r.fulfill(status=404, body=""))
     demo.goto(args.base_url + "?demo=1", wait_until="domcontentloaded")
     demo.get_by_text("DEMO · НЕ LIVE-ДАННЫЕ").wait_for()
